@@ -5,12 +5,12 @@ import pandas as pd
 # PAGE CONFIG
 # -----------------------------
 st.set_page_config(
-    page_title="Global Health Intelligence Dashboard v9",
+    page_title="Global Health Intelligence Dashboard v10",
     layout="wide"
 )
 
-st.title("🌍 Global Health Intelligence Dashboard v9")
-st.caption("AI-assisted health surveillance & early warning system")
+st.title("🌍 Global Health Intelligence Dashboard v10")
+st.caption("AI-powered global health surveillance & early warning system")
 
 # -----------------------------
 # COUNTRY SELECTION
@@ -20,23 +20,23 @@ country = st.selectbox(
     ["Ethiopia", "Kenya", "Sudan", "Somalia", "South Sudan"]
 )
 
-st.info(f"Active monitoring region: {country}")
+st.info(f"Monitoring region: {country}")
 
 # -----------------------------
 # DATA
 # -----------------------------
 data = [
-    {"event": "Conflict-related disruption", "type": "conflict"},
-    {"event": "Infectious disease signals", "type": "outbreak"},
+    {"event": "Conflict disruption", "type": "conflict"},
+    {"event": "Disease outbreak signals", "type": "outbreak"},
     {"event": "Maternal & child health trends", "type": "child"},
-    {"event": "Health system capacity stress", "type": "system"},
-    {"event": "Vaccination coverage changes", "type": "system"}
+    {"event": "Health system pressure", "type": "system"},
+    {"event": "Vaccination coverage shifts", "type": "system"}
 ]
 
 df = pd.DataFrame(data)
 
 # -----------------------------
-# COUNTRY RISK MODEL (V9 CLEANER)
+# COUNTRY RISK MODEL
 # -----------------------------
 weights = {
     "Ethiopia": {"conflict": 1.0, "outbreak": 1.0, "child": 0.9, "system": 0.9},
@@ -57,10 +57,10 @@ base = {
 
 df["score"] = df["type"].apply(lambda x: base[x] * w[x])
 
-def classify(x):
-    if x >= 70:
+def classify(score):
+    if score >= 70:
         return "HIGH"
-    elif x >= 40:
+    elif score >= 40:
         return "MODERATE"
     return "LOW"
 
@@ -74,73 +74,67 @@ moderate = int((df["risk"] == "MODERATE").sum())
 low = int((df["risk"] == "LOW").sum())
 
 col1, col2, col3 = st.columns(3)
-col1.metric("🔴 High", high)
-col2.metric("🟠 Moderate", moderate)
-col3.metric("🟢 Low", low)
+col1.metric("🔴 High Risk", high)
+col2.metric("🟠 Moderate Risk", moderate)
+col3.metric("🟢 Low Risk", low)
 
 st.divider()
 
 # -----------------------------
-# ALERT SYSTEM (CLEAN V9)
+# CLEAN ALERT SYSTEM
 # -----------------------------
 if high >= 2:
-    st.error("🔴 CRITICAL ALERT: Immediate health security risk detected")
+    st.error("🚨 CRITICAL ALERT: Immediate health security intervention required")
 elif moderate >= 3:
-    st.warning("🟠 ELEVATED ALERT: Increased surveillance required")
+    st.warning("⚠️ ELEVATED ALERT: Increased surveillance recommended")
 else:
-    st.success("🟢 STABLE: No major health security threats detected")
+    st.success("🟢 STABLE: No major health threats detected")
 
 # -----------------------------
-# TABLE (CLEAN)
+# TABLE (CLEAN + PORTFOLIO STYLE)
 # -----------------------------
-st.subheader("📊 Surveillance Intelligence Feed")
+st.subheader("📊 Intelligence Feed")
 st.dataframe(df, use_container_width=True)
 
 # -----------------------------
-# VISUALIZATION (SIMPLE + STABLE)
+# VISUALIZATION (SIMPLE & RELIABLE)
 # -----------------------------
-st.subheader("📈 Risk Overview")
+st.subheader("📈 Risk Distribution")
 
 chart = pd.DataFrame({
-    "Risk Level": ["High", "Moderate", "Low"],
+    "Risk": ["High", "Moderate", "Low"],
     "Count": [high, moderate, low]
 })
 
-st.bar_chart(chart.set_index("Risk Level"))
+st.bar_chart(chart.set_index("Risk"))
 
 # -----------------------------
-# AI SITUATION REPORT (V9 IMPROVED)
+# AI REPORT (V10 IMPROVED)
 # -----------------------------
 st.subheader("🧠 AI Situation Report")
 
-risk_score = high * 3 + moderate * 2 + low
-
-if high > 0:
-    status = "High-risk signals detected requiring urgent monitoring."
-elif moderate >= 2:
-    status = "Moderate risk activity detected requiring close surveillance."
-else:
-    status = "Low risk environment with stable indicators."
+risk_level = "high" if high > 0 else "moderate" if moderate >= 2 else "low"
 
 report = f"""
-**Country:** {country}
+### Executive Summary
+The surveillance system indicates a **{risk_level.upper()}-level** health security environment in **{country}**.
 
-**Summary:**
+### Key Findings
 - High-risk signals: {high}
 - Moderate-risk signals: {moderate}
 - Low-risk signals: {low}
 
-**Assessment:**
-{status}
+### Interpretation
+This pattern suggests a **{risk_level} confidence risk environment**, requiring {'urgent intervention' if high >= 2 else 'enhanced monitoring' if moderate >= 2 else 'routine surveillance'}.
 
-**Recommendation:**
-{'Activate emergency surveillance protocols.' if high >= 2 else 'Increase monitoring frequency and field reporting.' if moderate >= 2 else 'Maintain routine surveillance operations.'}
+### Recommendation
+{'Activate emergency response protocols and field verification.' if high >= 2 else 'Increase monitoring frequency and strengthen reporting systems.' if moderate >= 2 else 'Maintain routine surveillance operations.'}
 """
 
 st.markdown(report)
 
 # -----------------------------
-# FOOTER
+# EXPORT READY FOOTER
 # -----------------------------
 st.markdown("---")
-st.caption("v9 - Clean AI Health Intelligence Dashboard")
+st.caption("v10 - Portfolio-ready Global Health Intelligence Dashboard")
