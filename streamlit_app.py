@@ -6,40 +6,40 @@ import pandas as pd
 # CONFIG
 # -----------------------------
 st.set_page_config(
-    page_title="RW-17 Global Health Intelligence",
+    page_title="RW-18 Global Health Intelligence",
     layout="wide"
 )
 
-st.title("🌍 RW-17 Live Global Health Intelligence Dashboard")
-st.caption("Frontend-only system connected to FastAPI backend")
+st.title("🌍 RW-18 Live Global Health Intelligence System")
+st.caption("Real-time dashboard connected to live backend pipeline")
 
 # -----------------------------
-# BACKEND URL
+# BACKEND API
 # -----------------------------
 API_URL = "http://localhost:8000/events"
 
 # -----------------------------
-# LOAD DATA FROM BACKEND
+# FETCH DATA
 # -----------------------------
-def load_data():
+def fetch_data():
 
     try:
-        response = requests.get(API_URL, timeout=5)
-        data = response.json()
+        res = requests.get(API_URL, timeout=5)
+        data = res.json()
 
-        if len(data) == 0:
+        if not data:
             return pd.DataFrame()
 
         return pd.DataFrame(data)
 
     except:
-        st.error("❌ Backend not connected. Start FastAPI server.")
+        st.error("❌ Backend not reachable. Start FastAPI ingestion service.")
         return pd.DataFrame()
 
-df = load_data()
+df = fetch_data()
 
 # -----------------------------
-# COUNTRY FILTER (IF AVAILABLE)
+# FILTERING
 # -----------------------------
 if not df.empty and "country" in df.columns:
 
@@ -81,64 +81,21 @@ if not df.empty and "score" in df.columns:
 
     if total_score >= 8:
         st.error("🚨 CRITICAL GLOBAL HEALTH ALERT")
-        alert = "CRITICAL"
 
     elif total_score >= 5:
         st.warning("⚠️ ELEVATED RISK")
-        alert = "ELEVATED"
 
     elif total_score >= 2:
         st.info("🔎 WATCH STATUS")
-        alert = "WATCH"
 
     else:
         st.success("🟢 STABLE CONDITIONS")
-        alert = "STABLE"
 
 else:
-    alert = "NO DATA"
+    st.info("No active intelligence signals.")
 
 # -----------------------------
-# DATA DISPLAY
+# INTELLIGENCE FEED
 # -----------------------------
-st.subheader("📊 Intelligence Feed")
+st.subheader("📊 Intelligence Feed
 
-if df.empty:
-    st.info("No data available from backend.")
-else:
-    st.dataframe(df, use_container_width=True)
-
-# -----------------------------
-# SYSTEM STATUS
-# -----------------------------
-st.subheader("⚙️ System Status")
-
-st.write(f"""
-- Backend: **FastAPI (RW-17)**
-- Frontend: **Streamlit**
-- Country View: **{country}**
-- Alert Level: **{alert}**
-""")
-
-# -----------------------------
-# ARCHITECTURE
-# -----------------------------
-st.subheader("🧠 System Architecture")
-
-st.code("""
-[ External Data Sources ]
-          ↓
-[ FastAPI Backend ]
-          ↓
-[ Intelligence Engine ]
-          ↓
-[ API Response Layer ]
-          ↓
-[ Streamlit Dashboard ]
-""")
-
-# -----------------------------
-# FOOTER
-# -----------------------------
-st.markdown("---")
-st.caption("RW-17 - Production Split Architecture (Frontend Only)")
