@@ -5,36 +5,38 @@ import pandas as pd
 # PAGE CONFIG
 # -----------------------------
 st.set_page_config(
-    page_title="Global Health Intelligence Dashboard v8",
+    page_title="Global Health Intelligence Dashboard v9",
     layout="wide"
 )
 
-st.title("🌍 Global Health Intelligence Dashboard v8")
-st.markdown("AI-powered surveillance, intelligence & early warning system")
+st.title("🌍 Global Health Intelligence Dashboard v9")
+st.caption("AI-assisted health surveillance & early warning system")
 
 # -----------------------------
 # COUNTRY SELECTION
 # -----------------------------
 country = st.selectbox(
-    "Select Country",
+    "Select Surveillance Country",
     ["Ethiopia", "Kenya", "Sudan", "Somalia", "South Sudan"]
 )
+
+st.info(f"Active monitoring region: {country}")
 
 # -----------------------------
 # DATA
 # -----------------------------
 data = [
-    {"event": "Conflict disruption", "type": "conflict"},
-    {"event": "Disease outbreak signals", "type": "outbreak"},
-    {"event": "Child health trends", "type": "child"},
-    {"event": "Health system capacity", "type": "system"},
-    {"event": "Vaccination changes", "type": "system"}
+    {"event": "Conflict-related disruption", "type": "conflict"},
+    {"event": "Infectious disease signals", "type": "outbreak"},
+    {"event": "Maternal & child health trends", "type": "child"},
+    {"event": "Health system capacity stress", "type": "system"},
+    {"event": "Vaccination coverage changes", "type": "system"}
 ]
 
 df = pd.DataFrame(data)
 
 # -----------------------------
-# COUNTRY MODEL
+# COUNTRY RISK MODEL (V9 CLEANER)
 # -----------------------------
 weights = {
     "Ethiopia": {"conflict": 1.0, "outbreak": 1.0, "child": 0.9, "system": 0.9},
@@ -71,89 +73,74 @@ high = int((df["risk"] == "HIGH").sum())
 moderate = int((df["risk"] == "MODERATE").sum())
 low = int((df["risk"] == "LOW").sum())
 
+col1, col2, col3 = st.columns(3)
+col1.metric("🔴 High", high)
+col2.metric("🟠 Moderate", moderate)
+col3.metric("🟢 Low", low)
+
+st.divider()
+
 # -----------------------------
-# ALERT BANNER
+# ALERT SYSTEM (CLEAN V9)
 # -----------------------------
 if high >= 2:
-    st.error("🚨 RED ALERT: Critical instability detected")
+    st.error("🔴 CRITICAL ALERT: Immediate health security risk detected")
 elif moderate >= 3:
-    st.warning("⚠️ YELLOW ALERT: Elevated risk environment")
+    st.warning("🟠 ELEVATED ALERT: Increased surveillance required")
 else:
-    st.success("🟢 GREEN STATUS: Stable surveillance conditions")
+    st.success("🟢 STABLE: No major health security threats detected")
 
 # -----------------------------
-# METRICS DISPLAY
+# TABLE (CLEAN)
 # -----------------------------
-col1, col2, col3 = st.columns(3)
-col1.metric("High Risk", high)
-col2.metric("Moderate Risk", moderate)
-col3.metric("Low Risk", low)
+st.subheader("📊 Surveillance Intelligence Feed")
+st.dataframe(df, use_container_width=True)
 
 # -----------------------------
-# TABLE
+# VISUALIZATION (SIMPLE + STABLE)
 # -----------------------------
-st.subheader("📊 Intelligence Feed")
-st.dataframe(df)
+st.subheader("📈 Risk Overview")
 
-# -----------------------------
-# SIMPLE AFRICA MAP (V8 ADDITION)
-# -----------------------------
-st.subheader("🗺️ Regional View (Simplified)")
-
-map_data = pd.DataFrame({
-    "country": ["Ethiopia", "Kenya", "Sudan", "Somalia", "South Sudan"],
-    "risk": [high, moderate, low, moderate, high]
+chart = pd.DataFrame({
+    "Risk Level": ["High", "Moderate", "Low"],
+    "Count": [high, moderate, low]
 })
 
-st.bar_chart(map_data.set_index("country"))
+st.bar_chart(chart.set_index("Risk Level"))
 
 # -----------------------------
-# AI CHATBOT (SIMPLE V8 VERSION)
-# -----------------------------
-st.subheader("🤖 AI Assistant")
-
-if "chat" not in st.session_state:
-    st.session_state.chat = []
-
-user_input = st.text_input("Ask about health risks or situation:")
-
-if user_input:
-    if "conflict" in user_input.lower():
-        reply = "Conflict-related risks are influencing health service disruption patterns."
-    elif "outbreak" in user_input.lower():
-        reply = "Outbreak signals require increased surveillance and reporting."
-    elif "country" in user_input.lower():
-        reply = f"{country} currently shows {'elevated' if high > 0 else 'moderate'} risk levels."
-    else:
-        reply = "I am monitoring multiple health indicators. Please ask about conflict, outbreak, or country risk."
-
-    st.session_state.chat.append((user_input, reply))
-
-for q, a in st.session_state.chat:
-    st.markdown(f"**You:** {q}")
-    st.markdown(f"**AI:** {a}")
-
-# -----------------------------
-# AI SUMMARY REPORT
+# AI SITUATION REPORT (V9 IMPROVED)
 # -----------------------------
 st.subheader("🧠 AI Situation Report")
 
-st.write(f"""
+risk_score = high * 3 + moderate * 2 + low
+
+if high > 0:
+    status = "High-risk signals detected requiring urgent monitoring."
+elif moderate >= 2:
+    status = "Moderate risk activity detected requiring close surveillance."
+else:
+    status = "Low risk environment with stable indicators."
+
+report = f"""
 **Country:** {country}
 
-- High risk signals: {high}
-- Moderate risk signals: {moderate}
-- Low risk signals: {low}
+**Summary:**
+- High-risk signals: {high}
+- Moderate-risk signals: {moderate}
+- Low-risk signals: {low}
 
-**Interpretation:**
-System indicates {'high instability' if high >= 2 else 'moderate risk activity' if moderate >= 3 else 'stable conditions'} in {country}.
+**Assessment:**
+{status}
 
 **Recommendation:**
-{'Immediate response required.' if high >= 2 else 'Increase monitoring frequency.' if moderate >= 3 else 'Maintain routine surveillance.'}
-""")
+{'Activate emergency surveillance protocols.' if high >= 2 else 'Increase monitoring frequency and field reporting.' if moderate >= 2 else 'Maintain routine surveillance operations.'}
+"""
+
+st.markdown(report)
 
 # -----------------------------
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.markdown("v8 - AI-assisted Global Health Intelligence System")
+st.caption("v9 - Clean AI Health Intelligence Dashboard")
