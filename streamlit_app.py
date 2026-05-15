@@ -1,20 +1,19 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 
 # -----------------------------
 # PAGE CONFIG
 # -----------------------------
 st.set_page_config(
-    page_title="Global Health Intelligence Dashboard v3",
+    page_title="Global Health Intelligence Dashboard",
     layout="wide"
 )
 
-st.title("🌍 Global Health Intelligence Dashboard v3")
+st.title("🌍 Global Health Intelligence Dashboard")
 st.markdown("AI-powered monitoring for global health risks and alerts")
 
 # -----------------------------
-# COUNTRY SELECTION
+# COUNTRY SELECTOR
 # -----------------------------
 country = st.selectbox(
     "Select Country",
@@ -27,46 +26,43 @@ st.info(f"Monitoring health risks for: {country}")
 # DATA
 # -----------------------------
 data = [
-    {"title": "Conflict impacts health services", "category": "Conflict"},
-    {"title": "Disease outbreak monitoring", "category": "Disease"},
-    {"title": "Child health progress", "category": "Child Health"},
-    {"title": "Health system strengthening", "category": "Routine"}
+    {"title": "Conflict impacts health services"},
+    {"title": "Disease outbreak monitoring"},
+    {"title": "Child health progress"},
+    {"title": "Health system strengthening"}
 ]
 
 df = pd.DataFrame(data)
 
 # -----------------------------
-# RISK LOGIC
+# RISK ENGINE
 # -----------------------------
-def score_risk(text):
+def score(text):
     text = text.lower()
-    score = 0
-
+    s = 0
     if "conflict" in text:
-        score += 35
+        s += 35
     if "outbreak" in text:
-        score += 35
+        s += 35
     if "child" in text:
-        score += 20
+        s += 20
     if "health" in text:
-        score += 10
+        s += 10
+    return s
 
-    return score
+df["score"] = df["title"].apply(score)
 
-def risk_level(score):
-    if score >= 60:
+def level(x):
+    if x >= 60:
         return "HIGH"
-    elif score >= 35:
+    elif x >= 35:
         return "MODERATE"
-    else:
-        return "LOW"
+    return "LOW"
 
-# APPLY LOGIC
-df["score"] = df["title"].apply(score_risk)
-df["risk"] = df["score"].apply(risk_level)
+df["risk"] = df["score"].apply(level)
 
 # -----------------------------
-# METRICS (MUST COME AFTER RISK)
+# METRICS
 # -----------------------------
 high = int((df["risk"] == "HIGH").sum())
 moderate = int((df["risk"] == "MODERATE").sum())
@@ -84,28 +80,20 @@ st.subheader("📊 Risk Intelligence Table")
 st.dataframe(df)
 
 # -----------------------------
-# CHART (FIXED + STABLE)
+# SAFE VISUALIZATION (NO BUGS)
 # -----------------------------
 st.subheader("📈 Risk Distribution")
 
-labels = ["High", "Moderate", "Low"]
-values = [high, moderate, low]
-
-st.write("Debug values:", values)
-
-fig, ax = plt.subplots()
-ax.bar(labels, values)
-ax.set_ylabel("Count")
-ax.set_title(f"Risk Distribution - {country}")
-
-st.pyplot(fig)
+st.write("High Risk Level:", "█" * high)
+st.write("Moderate Risk Level:", "█" * moderate)
+st.write("Low Risk Level:", "█" * low)
 
 # -----------------------------
 # AI INSIGHT
 # -----------------------------
 st.subheader("🤖 AI Insight Engine")
 
-total_risk = (high * 3) + (moderate * 2) + low
+total = high * 3 + moderate * 2 + low
 
 if high > 0:
     st.error("🚨 CRITICAL: High-risk health threat detected.")
@@ -118,4 +106,4 @@ else:
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.markdown("v3 Fixed Clean Version - Global Health Intelligence System")
+st.markdown("Global Health Intelligence System (Stable Build)")
