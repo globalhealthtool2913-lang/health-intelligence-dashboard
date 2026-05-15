@@ -6,29 +6,31 @@ import pandas as pd
 # CONFIG
 # -----------------------------
 st.set_page_config(
-    page_title="RW-20 Global Health AI System",
+    page_title="RW-21 Global Health Intelligence AI",
     layout="wide"
 )
 
-st.title("🌍 RW-20 AI Global Health Prediction System")
-st.caption("Machine Learning-powered outbreak prediction dashboard")
+st.title("🌍 RW-21 AI-Powered Global Health Intelligence System")
+st.caption("Production ML dashboard connected to backend intelligence engine")
 
 # -----------------------------
-# BACKEND API
+# BACKEND
 # -----------------------------
-API_URL = "http://localhost:8000/events"
-PREDICT_URL = "http://localhost:8000/predict"
+EVENTS_API = "http://localhost:8000/events"
+PREDICT_API = "http://localhost:8000/predict"
 
 # -----------------------------
 # LOAD EVENTS
 # -----------------------------
 def load_events():
+
     try:
-        res = requests.get(API_URL, timeout=5)
+        res = requests.get(EVENTS_API, timeout=5)
         data = res.json()
         return pd.DataFrame(data) if data else pd.DataFrame()
+
     except:
-        st.error("❌ Backend not running (FastAPI required)")
+        st.error("❌ Backend not running (RW-20/21 required)")
         return pd.DataFrame()
 
 df = load_events()
@@ -53,9 +55,9 @@ else:
 # -----------------------------
 if not df.empty and "risk" in df.columns:
 
-    high = sum(df["risk"] == "HIGH")
-    moderate = sum(df["risk"] == "MODERATE")
-    low = sum(df["risk"] == "LOW")
+    high = (df["risk"] == "HIGH").sum()
+    moderate = (df["risk"] == "MODERATE").sum()
+    low = (df["risk"] == "LOW").sum()
 
 else:
     high = moderate = low = 0
@@ -68,14 +70,14 @@ col3.metric("🟢 Low", low)
 st.divider()
 
 # -----------------------------
-# AI PREDICTION (RW-20 CORE)
+# ML PREDICTION VIEW (FROM BACKEND)
 # -----------------------------
-st.subheader("🧠 AI Outbreak Prediction Engine")
+st.subheader("🧠 Machine Learning Prediction Engine")
 
-if st.button("Run Prediction"):
+if st.button("Run AI Prediction"):
 
     try:
-        response = requests.post(PREDICT_URL, json={
+        response = requests.post(PREDICT_API, json={
             "high": high,
             "moderate": moderate,
             "low": low
@@ -89,23 +91,47 @@ if st.button("Run Prediction"):
         st.metric("📊 Risk Score", round(risk_score, 2))
         st.metric("🔮 Outbreak Probability", f"{probability * 100:.1f}%")
 
-        if probability > 0.7:
-            st.error("🚨 HIGH OUTBREAK RISK PREDICTED")
-        elif probability > 0.4:
-            st.warning("⚠️ MODERATE RISK DETECTED")
+        # ALERT LOGIC (DISPLAY ONLY)
+        if probability >= 0.7:
+            st.error("🚨 HIGH OUTBREAK RISK")
+        elif probability >= 0.4:
+            st.warning("⚠️ MODERATE RISK")
         else:
             st.success("🟢 LOW RISK")
 
     except:
-        st.error("❌ Prediction service not available")
+        st.error("❌ Prediction API not available")
 
 # -----------------------------
-# DATA VIEW
+# TREND VIEW (FROM DATA)
+# -----------------------------
+st.subheader("📈 Trend Intelligence")
+
+if not df.empty and "score" in df.columns:
+
+    scores = df["score"].tolist()
+
+    if len(scores) > 2:
+
+        trend = scores[-1] - scores[-2]
+
+        if trend > 0:
+            st.warning("📈 Increasing Risk Trend")
+        elif trend < 0:
+            st.info("📉 Decreasing Risk Trend")
+        else:
+            st.success("➡️ Stable Trend")
+
+    else:
+        st.info("Not enough data for trend analysis")
+
+# -----------------------------
+# DATA TABLE
 # -----------------------------
 st.subheader("📊 Intelligence Feed")
 
 if df.empty:
-    st.warning("No data from backend")
+    st.warning("No backend data available")
 else:
     st.dataframe(df, use_container_width=True)
 
@@ -115,9 +141,9 @@ else:
 st.subheader("⚙️ System Status")
 
 st.write(f"""
-- System: RW-20 AI Prediction Layer
+- System: RW-21 ML Intelligence Layer
 - Backend: FastAPI required
-- ML Model: Active (server-side)
+- ML Engine: Server-side model
 - Country: {country}
 """)
 
@@ -131,7 +157,9 @@ st.code("""
         ↓
 [ FastAPI Backend ]
         ↓
-[ ML Prediction Engine (RW-20) ]
+[ Feature Engineering Layer ]
+        ↓
+[ ML Model (RW-21) ]
         ↓
 [ Prediction API ]
         ↓
@@ -142,4 +170,4 @@ st.code("""
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.caption("RW-20 - AI-Powered Global Health Prediction System")
+st.caption("RW-21 - Production AI Global Health Intelligence System")
