@@ -1,20 +1,21 @@
-import streamlit as st
+ import streamlit as st
 import pandas as pd
 import requests
+import matplotlib.pyplot as plt
 
 # -----------------------------
 # PAGE CONFIG
 # -----------------------------
 st.set_page_config(
-    page_title="Global Health Intelligence RW-7",
+    page_title="Global Health Intelligence RW-8",
     layout="wide"
 )
 
 # -----------------------------
 # TITLE
 # -----------------------------
-st.title("🌍 Global Health Intelligence System (RW-7 ULTIMATE)")
-st.caption("Real data pipeline + intelligent outbreak monitoring")
+st.title("🌍 Global Health Intelligence System (RW-8)")
+st.caption("Advanced outbreak intelligence and regional monitoring system")
 
 # -----------------------------
 # COUNTRY SELECTOR
@@ -24,7 +25,7 @@ country = st.selectbox(
     ["Ethiopia", "Kenya", "Sudan", "Somalia", "South Sudan"]
 )
 
-st.info(f"Monitoring: {country}")
+st.info(f"Monitoring Region: {country}")
 
 # -----------------------------
 # DATA PIPELINE
@@ -38,51 +39,21 @@ def fetch_data():
         )
 
         data = [
-            {
-                "event": "Cholera outbreak reported in region",
-                "country": "Ethiopia"
-            },
-            {
-                "event": "Flooding affecting health facilities",
-                "country": "Kenya"
-            },
-            {
-                "event": "Conflict limiting healthcare access",
-                "country": "Sudan"
-            },
-            {
-                "event": "Malaria surge detected",
-                "country": "Somalia"
-            },
-            {
-                "event": "Food insecurity affecting children",
-                "country": "South Sudan"
-            }
+            {"event": "Cholera outbreak reported in region", "country": "Ethiopia"},
+            {"event": "Flooding affecting health facilities", "country": "Kenya"},
+            {"event": "Conflict limiting healthcare access", "country": "Sudan"},
+            {"event": "Malaria surge detected", "country": "Somalia"},
+            {"event": "Food insecurity affecting children", "country": "South Sudan"}
         ]
 
     except:
 
         data = [
-            {
-                "event": "Disease outbreak detected",
-                "country": "Ethiopia"
-            },
-            {
-                "event": "Health system pressure increasing",
-                "country": "Kenya"
-            },
-            {
-                "event": "Emergency response needed",
-                "country": "Sudan"
-            },
-            {
-                "event": "Public health instability rising",
-                "country": "Somalia"
-            },
-            {
-                "event": "Nutrition crisis escalating",
-                "country": "South Sudan"
-            }
+            {"event": "Disease outbreak detected", "country": "Ethiopia"},
+            {"event": "Health system pressure increasing", "country": "Kenya"},
+            {"event": "Emergency response needed", "country": "Sudan"},
+            {"event": "Public health instability rising", "country": "Somalia"},
+            {"event": "Nutrition crisis escalating", "country": "South Sudan"}
         ]
 
     return pd.DataFrame(data)
@@ -165,7 +136,7 @@ col3.metric("🟢 Low", low)
 st.divider()
 
 # -----------------------------
-# ALERT ENGINE (IMPROVED)
+# ALERT ENGINE
 # -----------------------------
 if high >= 1:
 
@@ -188,16 +159,33 @@ else:
     st.success("🟢 STABLE CONDITIONS")
 
 # -----------------------------
-# GLOBAL FEED
+# INTELLIGENCE FEED
 # -----------------------------
 st.subheader("📊 Global Intelligence Feed")
 
 st.dataframe(df, use_container_width=True)
 
 # -----------------------------
-# TREND ENGINE
+# VISUAL ANALYTICS
 # -----------------------------
-st.subheader("📈 Trend Intelligence")
+st.subheader("📈 Risk Distribution Analytics")
+
+fig, ax = plt.subplots()
+
+categories = ["High", "Moderate", "Low"]
+values = [high, moderate, low]
+
+ax.bar(categories, values)
+
+ax.set_ylabel("Signal Count")
+ax.set_title("Outbreak Risk Distribution")
+
+st.pyplot(fig)
+
+# -----------------------------
+# TREND ANALYSIS
+# -----------------------------
+st.subheader("📉 Trend Intelligence")
 
 trend_score = (high * 3) + moderate
 
@@ -213,18 +201,32 @@ else:
 st.write(f"Trend Status: **{trend}**")
 
 # -----------------------------
+# REGIONAL SUMMARY
+# -----------------------------
+st.subheader("🗺️ Regional Monitoring Summary")
+
+regional_table = pd.DataFrame({
+    "Region": ["East Africa"],
+    "Country": [country],
+    "Alert": [alert],
+    "Trend": [trend]
+})
+
+st.table(regional_table)
+
+# -----------------------------
 # AI REPORT
 # -----------------------------
 st.subheader("🧠 AI Situation Report")
 
 st.write(f"""
-### Global Health Summary
+### Global Health Intelligence Summary
 
-- Country: **{country}**
+- Country Focus: **{country}**
 - Alert Level: **{alert}**
 - Trend Status: **{trend}**
 
-### Risk Breakdown
+### Risk Analysis
 
 - High-risk signals: {high}
 - Moderate-risk signals: {moderate}
@@ -234,12 +236,12 @@ st.write(f"""
 
 This reflects a **{alert.lower()}-level health intelligence environment**.
 
-### Recommendation
+### Operational Recommendation
 
-{"Activate emergency response systems immediately." if alert == "CRITICAL"
-else "Increase surveillance and field monitoring." if alert == "ELEVATED"
-else "Continue enhanced observation and reporting." if alert == "WATCH"
-else "Maintain routine monitoring systems."}
+{"Activate emergency outbreak coordination immediately." if alert == "CRITICAL"
+else "Increase regional surveillance operations." if alert == "ELEVATED"
+else "Maintain enhanced monitoring and reporting." if alert == "WATCH"
+else "Continue routine monitoring operations."}
 """)
 
 # -----------------------------
@@ -248,7 +250,5 @@ else "Maintain routine monitoring systems."}
 st.markdown("---")
 
 st.caption(
-    "RW-7 ULTIMATE - Advanced Global Health Intelligence Prototype"
+    "RW-8 - Advanced Global Health Intelligence & Surveillance Prototype"
 )
-
-    
