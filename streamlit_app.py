@@ -1,15 +1,15 @@
 import streamlit as st
 import pandas as pd
-import requests
-from io import BytesIO
+import time
+import random
 
 # -----------------------------
 # CONFIG
 # -----------------------------
-st.set_page_config(page_title="Global Health Intelligence RW-5", layout="wide")
+st.set_page_config(page_title="Global Health Intelligence RW-6", layout="wide")
 
-st.title("🌍 Global Health Intelligence System (RW-5 CLEAN)")
-st.caption("Advanced intelligence system (no external PDF libraries)")
+st.title("🌍 Global Health Intelligence System (RW-6 LIVE)")
+st.caption("Live-stream simulation (auto-refresh intelligence feed)")
 
 # -----------------------------
 # COUNTRY
@@ -22,30 +22,20 @@ country = st.selectbox(
 st.info(f"Monitoring: {country}")
 
 # -----------------------------
-# DATA LAYER
+# SIMULATED LIVE DATA ENGINE
 # -----------------------------
-def get_data():
-    try:
-        requests.get("https://api.reliefweb.int/v1/reports?appname=health-intel", timeout=5)
+def get_live_data():
+    base_data = [
+        {"event": "Cholera outbreak suspected in flood region", "country": "Ethiopia"},
+        {"event": "Measles cases increasing in camps", "country": "Sudan"},
+        {"event": "Flooding disrupting clinics", "country": "Kenya"},
+        {"event": "Malaria surge in rural districts", "country": "Somalia"},
+        {"event": "Food insecurity affecting children", "country": "South Sudan"},
+    ]
 
-        return pd.DataFrame([
-            {"event": "Cholera outbreak spreading rapidly", "country": "Ethiopia"},
-            {"event": "Floods disrupting hospitals", "country": "Kenya"},
-            {"event": "Conflict affecting healthcare access", "country": "Sudan"},
-            {"event": "Malaria surge in rural districts", "country": "Somalia"},
-            {"event": "Severe food insecurity affecting children", "country": "South Sudan"}
-        ])
-    except:
-        return pd.DataFrame([
-            {"event": "Disease outbreak detected", "country": "Ethiopia"},
-            {"event": "Health system stress increasing", "country": "Kenya"},
-            {"event": "Emergency conditions reported", "country": "Sudan"},
-            {"event": "Public health instability", "country": "Somalia"},
-            {"event": "Nutrition crisis escalating", "country": "South Sudan"}
-        ])
-
-df = get_data()
-df = df[df["country"] == country]
+    # simulate "live changes"
+    random.shuffle(base_data)
+    return pd.DataFrame(base_data)
 
 # -----------------------------
 # RISK ENGINE
@@ -66,8 +56,6 @@ def score(text):
 
     return s
 
-df["score"] = df["event"].apply(score)
-
 def classify(s):
     if s >= 3:
         return "HIGH"
@@ -75,94 +63,63 @@ def classify(s):
         return "MODERATE"
     return "LOW"
 
-df["risk"] = df["score"].apply(classify)
+# -----------------------------
+# LIVE STREAM PLACEHOLDER
+# -----------------------------
+placeholder = st.empty()
 
 # -----------------------------
-# METRICS
+# LIVE LOOP (SAFE SIMULATION)
 # -----------------------------
-high = int((df["risk"] == "HIGH").sum())
-moderate = int((df["risk"] == "MODERATE").sum())
-low = int((df["risk"] == "LOW").sum())
+for i in range(3):
 
-col1, col2, col3 = st.columns(3)
-col1.metric("🔴 High", high)
-col2.metric("🟠 Moderate", moderate)
-col3.metric("🟢 Low", low)
+    df = get_live_data()
+    df = df[df["country"] == country]
 
+    df["score"] = df["event"].apply(score)
+    df["risk"] = df["score"].apply(classify)
+
+    high = int((df["risk"] == "HIGH").sum())
+    moderate = int((df["risk"] == "MODERATE").sum())
+    low = int((df["risk"] == "LOW").sum())
+
+    with placeholder.container():
+
+        st.subheader("🔴 LIVE INTELLIGENCE STREAM")
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("🔴 High", high)
+        col2.metric("🟠 Moderate", moderate)
+        col3.metric("🟢 Low", low)
+
+        st.subheader("📊 Intelligence Feed")
+        st.dataframe(df, use_container_width=True)
+
+        # ALERT
+        if high >= 1:
+            st.error("🚨 CRITICAL RISK DETECTED")
+        elif moderate >= 1:
+            st.warning("⚠️ ELEVATED RISK DETECTED")
+        else:
+            st.success("🟢 STABLE CONDITIONS")
+
+        st.write(f"⏱️ Live update cycle: {i+1}/3")
+
+    time.sleep(3)
+
+# -----------------------------
+# FINAL REPORT
+# -----------------------------
 st.divider()
+st.subheader("🧠 Final Situation Report")
 
-# -----------------------------
-# ALERT ENGINE
-# -----------------------------
-if high >= 1:
-    alert = "CRITICAL"
-    st.error("🚨 CRITICAL PUBLIC HEALTH RISK")
-elif moderate >= 1:
-    alert = "ELEVATED"
-    st.warning("⚠️ ELEVATED HEALTH RISK")
-else:
-    alert = "STABLE"
-    st.success("🟢 STABLE CONDITIONS")
-
-# -----------------------------
-# INTELLIGENCE FEED
-# -----------------------------
-st.subheader("📊 Intelligence Feed")
-st.dataframe(df, use_container_width=True)
-
-# -----------------------------
-# TREND ENGINE
-# -----------------------------
-st.subheader("📈 Trend Intelligence")
-
-trend_score = (high * 3) + (moderate * 1)
-
-if trend_score >= 6:
-    trend = "RISING RISK 📈"
-elif trend_score >= 3:
-    trend = "STABLE MONITORING ⚠️"
-else:
-    trend = "LOW RISK 📉"
-
-st.write(f"Trend Status: **{trend}**")
-
-# -----------------------------
-# AI REPORT
-# -----------------------------
-st.subheader("🧠 AI Situation Report")
-
-report = f"""
-Country: {country}
-Alert Level: {alert}
-
-High signals: {high}
-Moderate signals: {moderate}
-Low signals: {low}
-
-Trend: {trend}
-
-Recommendation:
-{"Activate emergency response." if alert=="CRITICAL"
- else "Increase monitoring." if alert=="ELEVATED"
- else "Maintain routine surveillance."}
-"""
-
-st.text(report)
-
-# -----------------------------
-# OPTIONAL DOWNLOAD (TEXT ONLY)
-# -----------------------------
-st.subheader("📄 Policy Brief Download")
-
-st.download_button(
-    label="Download Report (TXT)",
-    data=report,
-    file_name=f"{country}_health_report.txt",
-    mime="text/plain"
-)
+st.write("""
+This system simulates real-time outbreak intelligence updates.
+Used for monitoring evolving health risks across regions.
+""")
 
 # -----------------------------
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.caption("RW-5 CLEAN - No external dependencies version")
+st.caption("RW-6 LIVE - Simulated Real-Time Global Health Intelligence System")
