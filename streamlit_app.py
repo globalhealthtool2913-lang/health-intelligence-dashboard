@@ -15,7 +15,7 @@ st.title("🌍 Global Health Intelligence Dashboard")
 st.markdown("AI-powered monitoring for health security risks and alerts")
 
 # -----------------------------
-# SAMPLE DATA
+# DATA
 # -----------------------------
 data = [
     {"title": "Conflict impacts health services", "category": "Conflict"},
@@ -27,7 +27,7 @@ data = [
 df = pd.DataFrame(data)
 
 # -----------------------------
-# RISK SCORING FUNCTION
+# RISK SCORING
 # -----------------------------
 def score_risk(text):
     text = text.lower()
@@ -57,9 +57,9 @@ df["risk"] = df["score"].apply(risk_level)
 # -----------------------------
 # METRICS
 # -----------------------------
-high = sum(df["risk"] == "HIGH")
-moderate = sum(df["risk"] == "MODERATE")
-low = sum(df["risk"] == "LOW")
+high = int(sum(df["risk"] == "HIGH"))
+moderate = int(sum(df["risk"] == "MODERATE"))
+low = int(sum(df["risk"] == "LOW"))
 
 col1, col2, col3 = st.columns(3)
 col1.metric("High Risk", high)
@@ -78,7 +78,6 @@ st.dataframe(df)
 st.subheader("📈 Risk Distribution")
 
 fig, ax = plt.subplots()
-
 ax.bar(
     ["High", "Moderate", "Low"],
     [high, moderate, low]
@@ -96,8 +95,8 @@ st.subheader("🤖 AI Insight")
 
 if high > 0:
     st.error("⚠️ High-risk signals detected. Immediate attention required.")
-elif moderate > low:
-    st.warning("⚠️ Moderate risk environment. Monitoring recommended.")
+elif moderate >= 2:
+    st.warning("⚠️ Moderate risk environment. Monitor closely.")
 else:
     st.success("✅ Stable situation. No major risks detected.")
 
