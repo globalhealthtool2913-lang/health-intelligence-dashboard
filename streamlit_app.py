@@ -2,16 +2,14 @@ import streamlit as st
 import pandas as pd
 import requests
 from io import BytesIO
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
 
 # -----------------------------
 # CONFIG
 # -----------------------------
 st.set_page_config(page_title="Global Health Intelligence RW-5", layout="wide")
 
-st.title("🌍 Global Health Intelligence System (RW-5 FINAL)")
-st.caption("Advanced intelligence system with trend + PDF reporting")
+st.title("🌍 Global Health Intelligence System (RW-5 CLEAN)")
+st.caption("Advanced intelligence system (no external PDF libraries)")
 
 # -----------------------------
 # COUNTRY
@@ -24,23 +22,23 @@ country = st.selectbox(
 st.info(f"Monitoring: {country}")
 
 # -----------------------------
-# DATA LAYER (STRUCTURED REAL-WORLD STYLE)
+# DATA LAYER
 # -----------------------------
 def get_data():
     try:
         requests.get("https://api.reliefweb.int/v1/reports?appname=health-intel", timeout=5)
 
         return pd.DataFrame([
-            {"event": "Cholera outbreak expanding rapidly", "country": "Ethiopia"},
-            {"event": "Flooding disrupting hospitals and clinics", "country": "Kenya"},
-            {"event": "Conflict escalating affecting healthcare access", "country": "Sudan"},
-            {"event": "Malaria cases rising in rural districts", "country": "Somalia"},
+            {"event": "Cholera outbreak spreading rapidly", "country": "Ethiopia"},
+            {"event": "Floods disrupting hospitals", "country": "Kenya"},
+            {"event": "Conflict affecting healthcare access", "country": "Sudan"},
+            {"event": "Malaria surge in rural districts", "country": "Somalia"},
             {"event": "Severe food insecurity affecting children", "country": "South Sudan"}
         ])
     except:
         return pd.DataFrame([
             {"event": "Disease outbreak detected", "country": "Ethiopia"},
-            {"event": "Health system pressure increasing", "country": "Kenya"},
+            {"event": "Health system stress increasing", "country": "Kenya"},
             {"event": "Emergency conditions reported", "country": "Sudan"},
             {"event": "Public health instability", "country": "Somalia"},
             {"event": "Nutrition crisis escalating", "country": "South Sudan"}
@@ -50,7 +48,7 @@ df = get_data()
 df = df[df["country"] == country]
 
 # -----------------------------
-# RISK ENGINE (IMPROVED)
+# RISK ENGINE
 # -----------------------------
 def score(text):
     text = text.lower()
@@ -94,39 +92,39 @@ col3.metric("🟢 Low", low)
 st.divider()
 
 # -----------------------------
-# TREND INTELLIGENCE (NEW)
+# ALERT ENGINE
+# -----------------------------
+if high >= 1:
+    alert = "CRITICAL"
+    st.error("🚨 CRITICAL PUBLIC HEALTH RISK")
+elif moderate >= 1:
+    alert = "ELEVATED"
+    st.warning("⚠️ ELEVATED HEALTH RISK")
+else:
+    alert = "STABLE"
+    st.success("🟢 STABLE CONDITIONS")
+
+# -----------------------------
+# INTELLIGENCE FEED
+# -----------------------------
+st.subheader("📊 Intelligence Feed")
+st.dataframe(df, use_container_width=True)
+
+# -----------------------------
+# TREND ENGINE
 # -----------------------------
 st.subheader("📈 Trend Intelligence")
 
 trend_score = (high * 3) + (moderate * 1)
 
 if trend_score >= 6:
-    trend = "RISING RISK TREND 📈"
+    trend = "RISING RISK 📈"
 elif trend_score >= 3:
-    trend = "STABLE BUT MONITORING ⚠️"
+    trend = "STABLE MONITORING ⚠️"
 else:
-    trend = "LOW RISK TREND 📉"
+    trend = "LOW RISK 📉"
 
 st.write(f"Trend Status: **{trend}**")
-
-# -----------------------------
-# ALERT ENGINE
-# -----------------------------
-if high >= 1:
-    alert = "CRITICAL"
-    st.error("🚨 CRITICAL OUTBREAK RISK")
-elif moderate >= 1:
-    alert = "ELEVATED"
-    st.warning("⚠️ ELEVATED RISK")
-else:
-    alert = "STABLE"
-    st.success("🟢 STABLE CONDITIONS")
-
-# -----------------------------
-# FEED
-# -----------------------------
-st.subheader("📊 Intelligence Feed")
-st.dataframe(df, use_container_width=True)
 
 # -----------------------------
 # AI REPORT
@@ -134,8 +132,6 @@ st.dataframe(df, use_container_width=True)
 st.subheader("🧠 AI Situation Report")
 
 report = f"""
-Global Health Intelligence Report
-
 Country: {country}
 Alert Level: {alert}
 
@@ -146,43 +142,27 @@ Low signals: {low}
 Trend: {trend}
 
 Recommendation:
-{"Immediate emergency response activation required." if alert=="CRITICAL"
- else "Increase surveillance and monitoring." if alert=="ELEVATED"
- else "Maintain routine monitoring."}
+{"Activate emergency response." if alert=="CRITICAL"
+ else "Increase monitoring." if alert=="ELEVATED"
+ else "Maintain routine surveillance."}
 """
 
 st.text(report)
 
 # -----------------------------
-# PDF GENERATOR (NEW)
+# OPTIONAL DOWNLOAD (TEXT ONLY)
 # -----------------------------
-st.subheader("📄 Download Policy Brief")
-
-def create_pdf(text):
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer)
-    styles = getSampleStyleSheet()
-    story = []
-
-    for line in text.split("\n"):
-        story.append(Paragraph(line, styles["Normal"]))
-        story.append(Spacer(1, 5))
-
-    doc.build(story)
-    buffer.seek(0)
-    return buffer
-
-pdf = create_pdf(report)
+st.subheader("📄 Policy Brief Download")
 
 st.download_button(
-    label="Download Policy Brief PDF",
-    data=pdf,
-    file_name=f"{country}_health_intelligence_report.pdf",
-    mime="application/pdf"
+    label="Download Report (TXT)",
+    data=report,
+    file_name=f"{country}_health_report.txt",
+    mime="text/plain"
 )
 
 # -----------------------------
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.caption("RW-5 FINAL - Global Health Intelligence System Prototype")
+st.caption("RW-5 CLEAN - No external dependencies version")
