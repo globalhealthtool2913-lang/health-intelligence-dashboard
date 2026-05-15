@@ -13,8 +13,8 @@ st.set_page_config(
 # -----------------------------
 # TITLE
 # -----------------------------
-st.title("🌍 Global Health Intelligence System (RW-7 CLEAN)")
-st.caption("Real data pipeline + improved outbreak intelligence")
+st.title("🌍 Global Health Intelligence System (RW-7 ULTIMATE)")
+st.caption("Real data pipeline + intelligent outbreak monitoring")
 
 # -----------------------------
 # COUNTRY SELECTOR
@@ -27,7 +27,7 @@ country = st.selectbox(
 st.info(f"Monitoring: {country}")
 
 # -----------------------------
-# DATA FETCHING
+# DATA PIPELINE
 # -----------------------------
 def fetch_data():
 
@@ -95,7 +95,7 @@ df = fetch_data()
 df = df[df["country"] == country]
 
 # -----------------------------
-# RISK SCORING
+# RISK ENGINE
 # -----------------------------
 def score_risk(text):
 
@@ -114,7 +114,9 @@ def score_risk(text):
         "flood",
         "malaria",
         "food",
-        "health"
+        "health",
+        "pressure",
+        "instability"
     ]
 
     score = 0
@@ -132,7 +134,7 @@ def score_risk(text):
 df["score"] = df["event"].apply(score_risk)
 
 # -----------------------------
-# RISK CLASSIFICATION
+# CLASSIFICATION
 # -----------------------------
 def classify(score):
 
@@ -163,17 +165,22 @@ col3.metric("🟢 Low", low)
 st.divider()
 
 # -----------------------------
-# ALERT ENGINE
+# ALERT ENGINE (IMPROVED)
 # -----------------------------
-if high >= 2:
+if high >= 1:
 
     alert = "CRITICAL"
     st.error("🚨 CRITICAL GLOBAL HEALTH ALERT")
 
-elif high == 1 or moderate >= 2:
+elif moderate >= 2:
 
     alert = "ELEVATED"
     st.warning("⚠️ ELEVATED HEALTH RISK")
+
+elif moderate == 1:
+
+    alert = "WATCH"
+    st.info("🔎 WATCH STATUS - Moderate Risk Signal Detected")
 
 else:
 
@@ -181,14 +188,14 @@ else:
     st.success("🟢 STABLE CONDITIONS")
 
 # -----------------------------
-# INTELLIGENCE FEED
+# GLOBAL FEED
 # -----------------------------
 st.subheader("📊 Global Intelligence Feed")
 
 st.dataframe(df, use_container_width=True)
 
 # -----------------------------
-# TREND INTELLIGENCE
+# TREND ENGINE
 # -----------------------------
 st.subheader("📈 Trend Intelligence")
 
@@ -230,7 +237,8 @@ This reflects a **{alert.lower()}-level health intelligence environment**.
 ### Recommendation
 
 {"Activate emergency response systems immediately." if alert == "CRITICAL"
-else "Increase surveillance and monitoring." if alert == "ELEVATED"
+else "Increase surveillance and field monitoring." if alert == "ELEVATED"
+else "Continue enhanced observation and reporting." if alert == "WATCH"
 else "Maintain routine monitoring systems."}
 """)
 
@@ -240,5 +248,7 @@ else "Maintain routine monitoring systems."}
 st.markdown("---")
 
 st.caption(
-    "RW-7 CLEAN - Stable Global Health Intelligence Prototype"
+    "RW-7 ULTIMATE - Advanced Global Health Intelligence Prototype"
 )
+
+    
