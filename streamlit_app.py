@@ -97,5 +97,46 @@ else:
 # -----------------------------
 # INTELLIGENCE FEED
 # -----------------------------
-st.subheader("📊 Intelligence Feed
+st.subheader("📊 Intelligence Feed")
 
+if df.empty:
+    st.warning("No data available from backend.")
+else:
+    st.dataframe(df, use_container_width=True)
+
+# -----------------------------
+# SYSTEM STATUS
+# -----------------------------
+st.subheader("⚙️ System Status")
+
+st.write(f"""
+- System: **RW-18 Live Intelligence Pipeline**
+- Backend: **FastAPI (required)**
+- Data Source: **Live ingestion service**
+- Country View: **{country}**
+""")
+
+# -----------------------------
+# ARCHITECTURE VIEW
+# -----------------------------
+st.subheader("🧠 System Architecture")
+
+st.code("""
+[ Live External Data Sources ]
+            ↓
+[ Ingestion Service (FastAPI Worker) ]
+            ↓
+[ Intelligence Engine + Scoring ]
+            ↓
+[ Database (PostgreSQL / SQLite) ]
+            ↓
+[ API Layer ]
+            ↓
+[ Streamlit Dashboard ]
+""")
+
+# -----------------------------
+# FOOTER
+# -----------------------------
+st.markdown("---")
+st.caption("RW-18 - Live Global Health Intelligence Dashboard (Frontend Only)")
