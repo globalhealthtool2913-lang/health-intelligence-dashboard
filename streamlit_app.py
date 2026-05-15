@@ -5,66 +5,68 @@ import pandas as pd
 # PAGE CONFIG
 # -----------------------------
 st.set_page_config(
-    page_title="Global Health Intelligence Dashboard v5",
+    page_title="Global Health Intelligence Dashboard v6",
     layout="wide"
 )
 
-st.title("🌍 Global Health Intelligence Dashboard v5")
-st.markdown("Advanced AI-assisted global health risk monitoring system")
+st.title("🌍 Global Health Intelligence Dashboard v6")
+st.markdown("AI-driven health risk monitoring & early warning system")
 
 # -----------------------------
-# COUNTRY CONTEXT
+# COUNTRY SELECTION
 # -----------------------------
 country = st.selectbox(
     "Select Country",
     ["Ethiopia", "Kenya", "Sudan", "Somalia", "South Sudan"]
 )
 
-st.info(f"Analyzing health security signals for: {country}")
+st.info(f"Active surveillance region: {country}")
 
 # -----------------------------
 # DATA
 # -----------------------------
 data = [
-    {"title": "Conflict impacts health services", "type": "conflict"},
-    {"title": "Disease outbreak monitoring", "type": "outbreak"},
-    {"title": "Child health progress", "type": "child"},
-    {"title": "Health system strengthening", "type": "system"}
+    {"event": "Conflict disruption", "type": "conflict"},
+    {"event": "Infectious disease outbreak", "type": "outbreak"},
+    {"event": "Maternal & child health progress", "type": "child"},
+    {"event": "Health system resilience", "type": "system"},
+    {"event": "Vaccination coverage change", "type": "system"}
 ]
 
 df = pd.DataFrame(data)
 
 # -----------------------------
-# COUNTRY RISK FACTOR (NEW IN V5)
+# COUNTRY RISK PROFILE (IMPROVED V6)
 # -----------------------------
-country_factor = {
-    "Ethiopia": 1.0,
-    "Kenya": 0.9,
-    "Sudan": 1.2,
-    "Somalia": 1.3,
-    "South Sudan": 1.4
+country_profile = {
+    "Ethiopia": {"conflict": 1.0, "outbreak": 1.0, "child": 0.9, "system": 0.9},
+    "Kenya": {"conflict": 0.8, "outbreak": 0.9, "child": 0.85, "system": 0.9},
+    "Sudan": {"conflict": 1.3, "outbreak": 1.2, "child": 1.1, "system": 1.0},
+    "Somalia": {"conflict": 1.4, "outbreak": 1.3, "child": 1.2, "system": 1.1},
+    "South Sudan": {"conflict": 1.5, "outbreak": 1.4, "child": 1.3, "system": 1.2}
 }
 
-factor = country_factor[country]
+profile = country_profile[country]
 
 # -----------------------------
-# IMPROVED RISK ENGINE
+# RISK ENGINE (IMPROVED LOGIC)
 # -----------------------------
-def risk_score(t):
-    base = {
-        "conflict": 35,
-        "outbreak": 35,
-        "child": 20,
-        "system": 10
-    }
-    return base.get(t, 5) * factor
+base_scores = {
+    "conflict": 40,
+    "outbreak": 40,
+    "child": 25,
+    "system": 15
+}
 
-df["score"] = df["type"].apply(risk_score)
+def compute_score(t):
+    return base_scores[t["type"]] * profile[t["type"]]
 
-def classify(x):
-    if x >= 60:
+df["score"] = df.apply(compute_score, axis=1)
+
+def classify(score):
+    if score >= 70:
         return "HIGH"
-    elif x >= 35:
+    elif score >= 40:
         return "MODERATE"
     else:
         return "LOW"
@@ -86,50 +88,39 @@ col3.metric("Low Risk", low)
 # -----------------------------
 # TABLE
 # -----------------------------
-st.subheader("📊 Risk Intelligence Table")
+st.subheader("📊 Surveillance Intelligence Table")
 st.dataframe(df)
 
 # -----------------------------
-# CHART (STABLE + CLEAN)
+# TREND-LIKE VISUALIZATION (V6 IMPROVEMENT)
 # -----------------------------
-st.subheader("📈 Risk Distribution")
+st.subheader("📈 Risk Pattern Overview")
 
-chart = pd.DataFrame({
-    "Risk": ["High", "Moderate", "Low"],
-    "Count": [high, moderate, low]
+trend = pd.DataFrame({
+    "Category": ["High", "Moderate", "Low"],
+    "Score": [high * 3, moderate * 2, low]
 })
 
-st.bar_chart(chart.set_index("Risk"))
+st.line_chart(trend.set_index("Category"))
 
 # -----------------------------
-# SMART AI INSIGHT (V5)
+# AI INSIGHT ENGINE (V6)
 # -----------------------------
 st.subheader("🤖 AI Insight Engine")
 
-risk_total = (high * 3 + moderate * 2 + low)
+risk_index = (high * 3 + moderate * 2 + low) / len(df)
 
-if high > 0:
-    st.error(
-        f"🚨 HIGH ALERT in {country}: "
-        "Critical health security risks detected. Immediate monitoring required."
-    )
-elif moderate >= 2:
-    st.warning(
-        f"⚠️ ELEVATED RISK in {country}: "
-        "Multiple moderate signals detected. Increased surveillance recommended."
-    )
-elif risk_total > 6:
-    st.info(
-        f"ℹ️ WATCHLIST {country}: "
-        "Some risk activity present, but system remains stable."
-    )
+if high >= 2:
+    st.error(f"🚨 CRITICAL ALERT in {country}: High-risk clustering detected. Immediate response required.")
+elif moderate >= 3:
+    st.warning(f"⚠️ ELEVATED ALERT in {country}: Multiple moderate signals indicate instability.")
+elif risk_index > 2:
+    st.info(f"ℹ️ WATCHLIST: {country} shows moderate surveillance signals.")
 else:
-    st.success(
-        f"✅ STABLE {country}: No significant health threats detected."
-    )
+    st.success(f"✅ STABLE: {country} shows low health security risk levels.")
 
 # -----------------------------
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.markdown("v5 - AI-enhanced Global Health Intelligence System")
+st.markdown("v6 - Advanced AI Health Intelligence Prototype")
