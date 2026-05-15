@@ -5,61 +5,71 @@ import pandas as pd
 # PAGE CONFIG
 # -----------------------------
 st.set_page_config(
-    page_title="Global Health Intelligence Dashboard",
+    page_title="Global Health Intelligence Dashboard v5",
     layout="wide"
 )
 
-st.title("🌍 Global Health Intelligence Dashboard")
-st.markdown("AI-powered monitoring for global health risks and alerts")
+st.title("🌍 Global Health Intelligence Dashboard v5")
+st.markdown("Advanced AI-assisted global health risk monitoring system")
 
 # -----------------------------
-# COUNTRY SELECTOR
+# COUNTRY CONTEXT
 # -----------------------------
 country = st.selectbox(
     "Select Country",
     ["Ethiopia", "Kenya", "Sudan", "Somalia", "South Sudan"]
 )
 
-st.info(f"Monitoring health risks for: {country}")
+st.info(f"Analyzing health security signals for: {country}")
 
 # -----------------------------
 # DATA
 # -----------------------------
 data = [
-    {"title": "Conflict impacts health services"},
-    {"title": "Disease outbreak monitoring"},
-    {"title": "Child health progress"},
-    {"title": "Health system strengthening"}
+    {"title": "Conflict impacts health services", "type": "conflict"},
+    {"title": "Disease outbreak monitoring", "type": "outbreak"},
+    {"title": "Child health progress", "type": "child"},
+    {"title": "Health system strengthening", "type": "system"}
 ]
 
 df = pd.DataFrame(data)
 
 # -----------------------------
-# RISK ENGINE
+# COUNTRY RISK FACTOR (NEW IN V5)
 # -----------------------------
-def score(text):
-    text = text.lower()
-    s = 0
-    if "conflict" in text:
-        s += 35
-    if "outbreak" in text:
-        s += 35
-    if "child" in text:
-        s += 20
-    if "health" in text:
-        s += 10
-    return s
+country_factor = {
+    "Ethiopia": 1.0,
+    "Kenya": 0.9,
+    "Sudan": 1.2,
+    "Somalia": 1.3,
+    "South Sudan": 1.4
+}
 
-df["score"] = df["title"].apply(score)
+factor = country_factor[country]
 
-def level(x):
+# -----------------------------
+# IMPROVED RISK ENGINE
+# -----------------------------
+def risk_score(t):
+    base = {
+        "conflict": 35,
+        "outbreak": 35,
+        "child": 20,
+        "system": 10
+    }
+    return base.get(t, 5) * factor
+
+df["score"] = df["type"].apply(risk_score)
+
+def classify(x):
     if x >= 60:
         return "HIGH"
     elif x >= 35:
         return "MODERATE"
-    return "LOW"
+    else:
+        return "LOW"
 
-df["risk"] = df["score"].apply(level)
+df["risk"] = df["score"].apply(classify)
 
 # -----------------------------
 # METRICS
@@ -80,30 +90,46 @@ st.subheader("📊 Risk Intelligence Table")
 st.dataframe(df)
 
 # -----------------------------
-# SAFE VISUALIZATION (NO BUGS)
+# CHART (STABLE + CLEAN)
 # -----------------------------
 st.subheader("📈 Risk Distribution")
 
-st.write("High Risk Level:", "█" * high)
-st.write("Moderate Risk Level:", "█" * moderate)
-st.write("Low Risk Level:", "█" * low)
+chart = pd.DataFrame({
+    "Risk": ["High", "Moderate", "Low"],
+    "Count": [high, moderate, low]
+})
+
+st.bar_chart(chart.set_index("Risk"))
 
 # -----------------------------
-# AI INSIGHT
+# SMART AI INSIGHT (V5)
 # -----------------------------
 st.subheader("🤖 AI Insight Engine")
 
-total = high * 3 + moderate * 2 + low
+risk_total = (high * 3 + moderate * 2 + low)
 
 if high > 0:
-    st.error("🚨 CRITICAL: High-risk health threat detected.")
+    st.error(
+        f"🚨 HIGH ALERT in {country}: "
+        "Critical health security risks detected. Immediate monitoring required."
+    )
 elif moderate >= 2:
-    st.warning("⚠️ ELEVATED: Multiple moderate risks detected.")
+    st.warning(
+        f"⚠️ ELEVATED RISK in {country}: "
+        "Multiple moderate signals detected. Increased surveillance recommended."
+    )
+elif risk_total > 6:
+    st.info(
+        f"ℹ️ WATCHLIST {country}: "
+        "Some risk activity present, but system remains stable."
+    )
 else:
-    st.success("✅ STABLE: No major health threats detected.")
+    st.success(
+        f"✅ STABLE {country}: No significant health threats detected."
+    )
 
 # -----------------------------
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.markdown("Global Health Intelligence System (Stable Build)")
+st.markdown("v5 - AI-enhanced Global Health Intelligence System")
