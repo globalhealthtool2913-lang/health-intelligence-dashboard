@@ -111,4 +111,34 @@ else:
 # -----------------------------
 # SYSTEM STATUS
 # -----------------------------
-st.subheader
+st.subheader("⚙️ System Status")
+
+st.write(f"""
+- Backend: **FastAPI (RW-17)**
+- Frontend: **Streamlit**
+- Country View: **{country}**
+- Alert Level: **{alert}**
+""")
+
+# -----------------------------
+# ARCHITECTURE
+# -----------------------------
+st.subheader("🧠 System Architecture")
+
+st.code("""
+[ External Data Sources ]
+          ↓
+[ FastAPI Backend ]
+          ↓
+[ Intelligence Engine ]
+          ↓
+[ API Response Layer ]
+          ↓
+[ Streamlit Dashboard ]
+""")
+
+# -----------------------------
+# FOOTER
+# -----------------------------
+st.markdown("---")
+st.caption("RW-17 - Production Split Architecture (Frontend Only)")
