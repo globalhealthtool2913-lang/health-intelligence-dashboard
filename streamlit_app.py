@@ -5,66 +5,58 @@ import pandas as pd
 # PAGE CONFIG
 # -----------------------------
 st.set_page_config(
-    page_title="Global Health Intelligence Dashboard v10",
+    page_title="Global Health Intelligence - Real World Mode",
     layout="wide"
 )
 
-st.title("🌍 Global Health Intelligence Dashboard v10")
-st.caption("AI-powered global health surveillance & early warning system")
+st.title("🌍 Global Health Intelligence System (Real World Mode)")
+st.caption("AI-assisted outbreak monitoring & early warning system")
 
 # -----------------------------
 # COUNTRY SELECTION
 # -----------------------------
 country = st.selectbox(
-    "Select Surveillance Country",
+    "Select Country",
     ["Ethiopia", "Kenya", "Sudan", "Somalia", "South Sudan"]
 )
 
 st.info(f"Monitoring region: {country}")
 
 # -----------------------------
-# DATA
+# REAL-WORLD STYLE DATA (SIMULATED SOURCES)
 # -----------------------------
-data = [
-    {"event": "Conflict disruption", "type": "conflict"},
-    {"event": "Disease outbreak signals", "type": "outbreak"},
-    {"event": "Maternal & child health trends", "type": "child"},
-    {"event": "Health system pressure", "type": "system"},
-    {"event": "Vaccination coverage shifts", "type": "system"}
-]
+def get_data():
+    return pd.DataFrame([
+        {"event": "Cholera outbreak reported in flood-affected region", "country": "Ethiopia"},
+        {"event": "Measles cases rising in displacement camps", "country": "Sudan"},
+        {"event": "Health facility disruption due to conflict", "country": "Somalia"},
+        {"event": "Vaccination coverage decline in rural areas", "country": "Kenya"},
+        {"event": "Malaria surge during rainy season", "country": "Ethiopia"},
+        {"event": "Food insecurity affecting child nutrition", "country": "South Sudan"}
+    ])
 
-df = pd.DataFrame(data)
+df = get_data()
+
+# Filter by country
+df = df[df["country"] == country]
 
 # -----------------------------
-# COUNTRY RISK MODEL
+# RISK ENGINE (REAL WORLD STYLE NLP RULES)
 # -----------------------------
-weights = {
-    "Ethiopia": {"conflict": 1.0, "outbreak": 1.0, "child": 0.9, "system": 0.9},
-    "Kenya": {"conflict": 0.8, "outbreak": 0.9, "child": 0.85, "system": 0.9},
-    "Sudan": {"conflict": 1.3, "outbreak": 1.2, "child": 1.1, "system": 1.0},
-    "Somalia": {"conflict": 1.4, "outbreak": 1.3, "child": 1.2, "system": 1.1},
-    "South Sudan": {"conflict": 1.5, "outbreak": 1.4, "child": 1.3, "system": 1.2}
-}
+def detect_risk(text):
+    text = text.lower()
 
-w = weights[country]
+    high_keywords = ["cholera", "outbreak", "epidemic", "measles", "surge"]
+    moderate_keywords = ["conflict", "displacement", "flood", "shortage", "food insecurity", "malaria"]
 
-base = {
-    "conflict": 45,
-    "outbreak": 45,
-    "child": 25,
-    "system": 15
-}
-
-df["score"] = df["type"].apply(lambda x: base[x] * w[x])
-
-def classify(score):
-    if score >= 70:
+    if any(word in text for word in high_keywords):
         return "HIGH"
-    elif score >= 40:
+    elif any(word in text for word in moderate_keywords):
         return "MODERATE"
-    return "LOW"
+    else:
+        return "LOW"
 
-df["risk"] = df["score"].apply(classify)
+df["risk"] = df["event"].apply(detect_risk)
 
 # -----------------------------
 # METRICS
@@ -81,60 +73,50 @@ col3.metric("🟢 Low Risk", low)
 st.divider()
 
 # -----------------------------
-# CLEAN ALERT SYSTEM
+# ALERT SYSTEM
 # -----------------------------
 if high >= 2:
-    st.error("🚨 CRITICAL ALERT: Immediate health security intervention required")
+    st.error("🚨 CRITICAL ALERT: High-confidence outbreak signals detected")
 elif moderate >= 3:
-    st.warning("⚠️ ELEVATED ALERT: Increased surveillance recommended")
+    st.warning("⚠️ ELEVATED ALERT: Multiple risk signals detected")
 else:
-    st.success("🟢 STABLE: No major health threats detected")
+    st.success("🟢 STABLE: No major public health threats detected")
 
 # -----------------------------
-# TABLE (CLEAN + PORTFOLIO STYLE)
+# AI SITUATION REPORT
+# -----------------------------
+st.subheader("🧠 Situation Report")
+
+if high > 0:
+    status = "High-risk public health threats detected requiring immediate attention."
+elif moderate > 0:
+    status = "Moderate risk signals detected. Enhanced surveillance recommended."
+else:
+    status = "Stable public health conditions."
+
+st.write(f"""
+**Country:** {country}
+
+**Summary:**
+- High risk signals: {high}
+- Moderate risk signals: {moderate}
+- Low risk signals: {low}
+
+**Assessment:**
+{status}
+
+**Recommendation:**
+{'Activate emergency response protocols.' if high >= 2 else 'Increase surveillance and field reporting.' if moderate > 0 else 'Maintain routine monitoring.'}
+""")
+
+# -----------------------------
+# INTELLIGENCE FEED
 # -----------------------------
 st.subheader("📊 Intelligence Feed")
 st.dataframe(df, use_container_width=True)
 
 # -----------------------------
-# VISUALIZATION (SIMPLE & RELIABLE)
-# -----------------------------
-st.subheader("📈 Risk Distribution")
-
-chart = pd.DataFrame({
-    "Risk": ["High", "Moderate", "Low"],
-    "Count": [high, moderate, low]
-})
-
-st.bar_chart(chart.set_index("Risk"))
-
-# -----------------------------
-# AI REPORT (V10 IMPROVED)
-# -----------------------------
-st.subheader("🧠 AI Situation Report")
-
-risk_level = "high" if high > 0 else "moderate" if moderate >= 2 else "low"
-
-report = f"""
-### Executive Summary
-The surveillance system indicates a **{risk_level.upper()}-level** health security environment in **{country}**.
-
-### Key Findings
-- High-risk signals: {high}
-- Moderate-risk signals: {moderate}
-- Low-risk signals: {low}
-
-### Interpretation
-This pattern suggests a **{risk_level} confidence risk environment**, requiring {'urgent intervention' if high >= 2 else 'enhanced monitoring' if moderate >= 2 else 'routine surveillance'}.
-
-### Recommendation
-{'Activate emergency response protocols and field verification.' if high >= 2 else 'Increase monitoring frequency and strengthen reporting systems.' if moderate >= 2 else 'Maintain routine surveillance operations.'}
-"""
-
-st.markdown(report)
-
-# -----------------------------
-# EXPORT READY FOOTER
+# FOOTER
 # -----------------------------
 st.markdown("---")
-st.caption("v10 - Portfolio-ready Global Health Intelligence Dashboard")
+st.caption("Real World Mode - Global Health Intelligence Prototype")
