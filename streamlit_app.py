@@ -24,11 +24,10 @@ country = st.selectbox(
 st.info(f"Monitoring region: {country}")
 
 # -----------------------------
-# LIVE / SIMULATED DATA LAYER
+# DATA LAYER
 # -----------------------------
 def get_live_data():
     try:
-        # Example external API structure (fallback-safe)
         url = "https://api.reliefweb.int/v1/reports?appname=health-intel"
         response = requests.get(url, timeout=5)
 
@@ -42,7 +41,6 @@ def get_live_data():
     except:
         pass
 
-    # fallback dataset (always works)
     return pd.DataFrame([
         {"event": "Cholera outbreak reported in flood region", "country": "Ethiopia"},
         {"event": "Measles cases rising in displacement camps", "country": "Sudan"},
@@ -57,7 +55,7 @@ df = get_live_data()
 df = df[df["country"] == country]
 
 # -----------------------------
-# RISK ENGINE (REAL WORLD STYLE)
+# RISK ENGINE
 # -----------------------------
 def detect_risk(text):
     text = text.lower()
@@ -89,10 +87,57 @@ col3.metric("🟢 Low Risk", low)
 st.divider()
 
 # -----------------------------
-# ALERT SYSTEM
+# ALERT SYSTEM (FIXED INDENTATION)
 # -----------------------------
 if high >= 2:
     st.error("🚨 CRITICAL ALERT: High-confidence outbreak signals detected")
 elif moderate >= 3:
     st.warning("⚠️ ELEVATED ALERT: Multiple regional risk signals detected")
 else:
+    st.success("🟢 STABLE: No major public health threats detected")
+
+# -----------------------------
+# INTELLIGENCE FEED
+# -----------------------------
+st.subheader("📊 Intelligence Feed")
+st.dataframe(df, use_container_width=True)
+
+# -----------------------------
+# MAP VIEW
+# -----------------------------
+st.subheader("🗺️ Regional Risk View")
+
+map_data = pd.DataFrame({
+    "lat": [9.145, 1.2921, 15.5, 5.1521, -1.286],
+    "lon": [40.4897, 36.8219, 32.5599, 46.1996, 36.8219],
+    "country": ["Ethiopia", "Kenya", "Sudan", "Somalia", "Kenya"],
+    "risk": [high, moderate, high, moderate, low]
+})
+
+st.map(map_data)
+
+# -----------------------------
+# AI REPORT
+# -----------------------------
+st.subheader("🧠 AI Situation Report")
+
+risk_level = "HIGH" if high > 0 else "MODERATE" if moderate > 0 else "LOW"
+
+st.write(f"""
+### Global Health Assessment
+
+- **Country:** {country}
+- **Risk Level:** {risk_level}
+
+### Interpretation
+The system detects **{risk_level.lower()}-level health security signals**.
+
+### Recommendation
+{'Activate emergency response protocols immediately.' if high > 0 else 'Increase surveillance and reporting frequency.' if moderate > 0 else 'Maintain routine monitoring operations.'}
+""")
+
+# -----------------------------
+# FOOTER
+# -----------------------------
+st.markdown("---")
+st.caption("RW-2 - Fixed Global Health Intelligence Prototype")
