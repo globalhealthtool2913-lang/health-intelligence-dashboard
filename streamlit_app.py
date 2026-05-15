@@ -6,58 +6,77 @@ import pandas as pd
 # CONFIG
 # -----------------------------
 st.set_page_config(
-    page_title="RW-22 Global Health ML System",
+    page_title="Global Health Intelligence System",
     layout="wide"
 )
 
-st.title("🌍 RW-22 Real ML Global Health Intelligence System")
-st.caption("Dataset-trained ML pipeline dashboard")
+st.title("🌍 Global Health Intelligence Dashboard")
+st.caption("AI-assisted surveillance + ML-ready architecture")
 
 # -----------------------------
-# BACKEND
+# API CONFIG (CHANGE THIS WHEN DEPLOYING)
 # -----------------------------
-EVENTS_API = "http://localhost:8000/events"
-PREDICT_API = "http://localhost:8000/predict"
+API_EVENTS = "http://localhost:8000/events"
+API_PREDICT = "http://localhost:8000/predict"
+
+# -----------------------------
+# SAFE API CALL FUNCTION
+# -----------------------------
+def safe_get(url):
+    try:
+        r = requests.get(url, timeout=4)
+        return r.json()
+    except:
+        return None
+
+def safe_post(url, payload):
+    try:
+        r = requests.post(url, json=payload, timeout=4)
+        return r.json()
+    except:
+        return None
 
 # -----------------------------
 # LOAD DATA
 # -----------------------------
-def load_data():
-    try:
-        res = requests.get(EVENTS_API, timeout=5)
-        return pd.DataFrame(res.json()) if res.json() else pd.DataFrame()
-    except:
-        st.error("❌ Backend not running (RW-22 required)")
-        return pd.DataFrame()
+data = safe_get(API_EVENTS)
 
-df = load_data()
+if data:
+    df = pd.DataFrame(data)
+    backend_status = "🟢 Connected"
+else:
+    df = pd.DataFrame()
+    backend_status = "🔴 Offline (Mock Mode)"
+
+# -----------------------------
+# STATUS BAR
+# -----------------------------
+st.subheader("⚙️ System Status")
+st.write(f"Backend: {backend_status}")
+
+# -----------------------------
+# MOCK DATA IF BACKEND IS OFF
+# -----------------------------
+if df.empty:
+    df = pd.DataFrame([
+        {"country": "Ethiopia", "risk": "HIGH", "score": 8},
+        {"country": "Kenya", "risk": "MODERATE", "score": 5},
+        {"country": "Uganda", "risk": "LOW", "score": 2},
+    ])
 
 # -----------------------------
 # COUNTRY FILTER
 # -----------------------------
-if not df.empty and "country" in df.columns:
-
-    country = st.sidebar.selectbox(
-        "Select Country",
-        sorted(df["country"].unique())
-    )
-
+if "country" in df.columns:
+    country = st.sidebar.selectbox("Select Country", df["country"].unique())
     df = df[df["country"] == country]
-
-else:
-    country = "N/A"
 
 # -----------------------------
 # METRICS
 # -----------------------------
-if not df.empty and "risk" in df.columns:
-
-    high = (df["risk"] == "HIGH").sum()
-    moderate = (df["risk"] == "MODERATE").sum()
-    low = (df["risk"] == "LOW").sum()
-
-else:
-    high = moderate = low = 0
+high = (df["risk"] == "HIGH").sum()
+moderate = (df["risk"] == "MODERATE").sum()
+low = (df["risk"] == "LOW").sum()
 
 col1, col2, col3 = st.columns(3)
 col1.metric("🔴 High", high)
@@ -67,55 +86,39 @@ col3.metric("🟢 Low", low)
 st.divider()
 
 # -----------------------------
-# ML PREDICTION (REAL MODEL OUTPUT)
+# ML PREDICTION SECTION
 # -----------------------------
-st.subheader("🧠 ML Prediction Engine (RW-22)")
+st.subheader("🧠 ML Prediction Engine")
 
 if st.button("Run Prediction"):
 
-    try:
-        response = requests.post(PREDICT_API, json={
-            "high": high,
-            "moderate": moderate,
-            "low": low
-        }, timeout=5)
+    result = safe_post(API_PREDICT, {
+        "high": int(high),
+        "moderate": int(moderate),
+        "low": int(low)
+    })
 
-        result = response.json()
+    if result:
+        st.metric("📊 Risk Score", round(result.get("risk_score", 0), 2))
+        st.metric("🔮 Probability", round(result.get("probability", 0), 2))
+    else:
+        # fallback logic so UI never breaks
+        score = (high * 4) + (moderate * 2) + low
+        prob = min(score / 12, 1.0)
 
-        risk_score = result.get("risk_score", 0)
-
-        st.metric("📊 Predicted Risk Score", round(risk_score, 2))
-
-        if risk_score > 8:
-            st.error("🚨 HIGH RISK DETECTED")
-        elif risk_score > 5:
-            st.warning("⚠️ MODERATE RISK")
-        else:
-            st.success("🟢 LOW RISK")
-
-    except:
-        st.error("❌ Prediction service unavailable")
+        st.metric("📊 Risk Score (Offline)", score)
+        st.metric("🔮 Probability (Offline)", round(prob, 2))
 
 # -----------------------------
-# TREND ANALYSIS (FROM DATASET)
+# TREND ANALYSIS (SAFE)
 # -----------------------------
 st.subheader("📈 Trend Intelligence")
 
-if not df.empty and "risk" in df.columns:
+if len(df) > 1:
+    scores = df["score"].tolist() if "score" in df.columns else [0, 1]
 
-    values = []
-
-    for r in df["risk"]:
-        if r == "HIGH":
-            values.append(3)
-        elif r == "MODERATE":
-            values.append(2)
-        else:
-            values.append(1)
-
-    if len(values) > 2:
-
-        change = values[-1] - values[-2]
+    if len(scores) >= 2:
+        change = scores[-1] - scores[-2]
 
         if change > 0:
             st.warning("📈 Increasing Risk Trend")
@@ -127,40 +130,21 @@ if not df.empty and "risk" in df.columns:
 # -----------------------------
 # DATA TABLE
 # -----------------------------
-st.subheader("📊 Intelligence Dataset")
-
-if df.empty:
-    st.warning("No backend data available")
-else:
-    st.dataframe(df, use_container_width=True)
+st.subheader("📊 Intelligence Feed")
+st.dataframe(df, use_container_width=True)
 
 # -----------------------------
-# SYSTEM STATUS
-# -----------------------------
-st.subheader("⚙️ System Status")
-
-st.write(f"""
-- System: RW-22 ML Training Pipeline Dashboard
-- Backend: FastAPI required
-- Model Type: RandomForest Regressor (server-side)
-- Data: Dataset-trained
-- Country: {country}
-""")
-
-# -----------------------------
-# ARCHITECTURE
+# ARCHITECTURE VIEW
 # -----------------------------
 st.subheader("🧠 System Architecture")
 
 st.code("""
-[ Real Dataset Sources ]
-        ↓
-[ Data Cleaning + Feature Engineering ]
-        ↓
-[ ML Training (RW-22 Model) ]
-        ↓
-[ FastAPI Prediction Service ]
-        ↓
+[ Data Sources ]
+      ↓
+[ FastAPI Backend (optional) ]
+      ↓
+[ ML Engine ]
+      ↓
 [ Streamlit Dashboard ]
 """)
 
@@ -168,4 +152,4 @@ st.code("""
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.caption("RW-22 - Real ML Global Health Intelligence System")
+st.caption("Stable Global Health Intelligence System (Offline + Online Mode Supported)")
