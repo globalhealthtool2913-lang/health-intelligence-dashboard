@@ -78,7 +78,15 @@ st.dataframe(df)
 st.subheader("📈 Risk Distribution")
 
 fig, ax = plt.subplots()
-ax.bar(["High", "Moderate", "Low"], [high, moderate, low])
+
+ax.bar(
+    ["High", "Moderate", "Low"],
+    [high, moderate, low]
+)
+
+ax.set_ylabel("Count")
+ax.set_title("Health Risk Levels")
+
 st.pyplot(fig)
 
 # -----------------------------
