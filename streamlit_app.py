@@ -7,8 +7,8 @@ import requests
 # -----------------------------
 st.set_page_config(page_title="Global Health Intelligence RW-3", layout="wide")
 
-st.title("🌍 Global Health Intelligence System (RW-3)")
-st.caption("Real-time inspired outbreak intelligence + AI analysis layer")
+st.title("🌍 Global Health Intelligence System (RW-3 FIXED)")
+st.caption("AI-assisted outbreak intelligence + correct risk logic")
 
 # -----------------------------
 # COUNTRY
@@ -21,24 +21,22 @@ country = st.selectbox(
 st.info(f"Monitoring: {country}")
 
 # -----------------------------
-# LIVE NEWS INTELLIGENCE LAYER
+# DATA LAYER
 # -----------------------------
 def get_intelligence_data():
     try:
-        # placeholder for real API (GDELT / ReliefWeb)
-        url = "https://api.reliefweb.int/v1/reports?appname=health-intel"
-        requests.get(url, timeout=5)
+        requests.get("https://api.reliefweb.int/v1/reports?appname=health-intel", timeout=5)
 
         return pd.DataFrame([
             {"event": "Cholera outbreak spreading in East Africa", "country": "Ethiopia"},
-            {"event": "Floods disrupt hospital services", "country": "Kenya"},
-            {"event": "Conflict escalates affecting health access", "country": "Sudan"},
+            {"event": "Floods disrupting health services", "country": "Kenya"},
+            {"event": "Conflict escalating in region affecting hospitals", "country": "Sudan"},
             {"event": "Malaria surge reported in rural areas", "country": "Somalia"},
-            {"event": "Food insecurity rising among children", "country": "South Sudan"}
+            {"event": "Food insecurity increasing among children", "country": "South Sudan"}
         ])
     except:
         return pd.DataFrame([
-            {"event": "Cholera outbreak detected", "country": "Ethiopia"},
+            {"event": "Cholera outbreak reported", "country": "Ethiopia"},
             {"event": "Measles cases increasing", "country": "Sudan"},
             {"event": "Flooding affecting clinics", "country": "Kenya"},
             {"event": "Health system disruption", "country": "Somalia"},
@@ -49,17 +47,17 @@ df = get_intelligence_data()
 df = df[df["country"] == country]
 
 # -----------------------------
-# AI RISK CLASSIFIER (IMPROVED)
+# RISK ENGINE
 # -----------------------------
 def classify_risk(text):
     text = text.lower()
 
-    high = ["cholera", "outbreak", "epidemic", "measles", "surge"]
-    moderate = ["conflict", "flood", "displacement", "malaria", "food", "shortage"]
+    high_keywords = ["cholera", "outbreak", "epidemic", "measles", "surge"]
+    moderate_keywords = ["conflict", "flood", "displacement", "malaria", "food", "shortage"]
 
-    if any(w in text for w in high):
+    if any(w in text for w in high_keywords):
         return "HIGH"
-    elif any(w in text for w in moderate):
+    elif any(w in text for w in moderate_keywords):
         return "MODERATE"
     return "LOW"
 
@@ -72,20 +70,20 @@ high = int((df["risk"] == "HIGH").sum())
 moderate = int((df["risk"] == "MODERATE").sum())
 low = int((df["risk"] == "LOW").sum())
 
-c1, c2, c3 = st.columns(3)
-c1.metric("🔴 High", high)
-c2.metric("🟠 Moderate", moderate)
-c3.metric("🟢 Low", low)
+col1, col2, col3 = st.columns(3)
+col1.metric("🔴 High Risk", high)
+col2.metric("🟠 Moderate Risk", moderate)
+col3.metric("🟢 Low Risk", low)
 
 st.divider()
 
 # -----------------------------
-# ALERT ENGINE (RW-3 IMPROVED)
+# FIXED ALERT LOGIC (IMPORTANT)
 # -----------------------------
-if high >= 2:
+if high >= 1:
     alert = "CRITICAL"
     st.error("🚨 CRITICAL OUTBREAK RISK DETECTED")
-elif moderate >= 3:
+elif moderate >= 1:
     alert = "ELEVATED"
     st.warning("⚠️ ELEVATED REGIONAL RISK DETECTED")
 else:
@@ -99,11 +97,11 @@ st.subheader("📊 Intelligence Feed")
 st.dataframe(df, use_container_width=True)
 
 # -----------------------------
-# AI ANALYSIS ENGINE
+# AI REPORT
 # -----------------------------
 st.subheader("🧠 AI Situation Report")
 
-summary = f"""
+st.write(f"""
 ### Situation Overview
 Country: **{country}**
 Risk Level: **{alert}**
@@ -120,12 +118,10 @@ This indicates a **{alert.lower()}-level health security environment**.
 {"Activate emergency response protocols immediately." if alert=="CRITICAL"
  else "Increase surveillance and monitoring intensity." if alert=="ELEVATED"
  else "Maintain routine monitoring operations."}
-"""
-
-st.markdown(summary)
+""")
 
 # -----------------------------
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.caption("RW-3 - Real Intelligence Layer Prototype")
+st.caption("RW-3 FIXED - Global Health Intelligence Prototype")
