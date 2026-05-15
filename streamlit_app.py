@@ -6,12 +6,12 @@ from datetime import datetime
 # CONFIG
 # -----------------------------
 st.set_page_config(
-    page_title="RW-15 Global Health Intelligence",
+    page_title="RW-16 Global Health Intelligence",
     layout="wide"
 )
 
-st.title("🌍 RW-15 Global Health Intelligence Platform")
-st.caption("Clean visualization layer (backend-ready architecture)")
+st.title("🌍 RW-16 Global Health Intelligence Platform")
+st.caption("Production-ready frontend (connected to backend architecture)")
 
 # -----------------------------
 # SIDEBAR
@@ -21,12 +21,12 @@ country = st.sidebar.selectbox(
     ["Ethiopia", "Kenya", "Sudan", "Somalia", "South Sudan"]
 )
 
-st.sidebar.info("RW-15 frontend is connected to external intelligence pipeline (simulated).")
+st.sidebar.info("This UI is designed to connect to a live backend API (RW-17+).")
 
 # -----------------------------
-# SIMULATED RECEIVED DATA (FROM BACKEND)
+# SIMULATED BACKEND RESPONSE (PLACEHOLDER)
 # -----------------------------
-def load_data():
+def fetch_from_backend():
 
     return pd.DataFrame([
         {
@@ -44,18 +44,10 @@ def load_data():
             "score": 4,
             "risk": "MODERATE",
             "timestamp": datetime.now()
-        },
-        {
-            "event": "Conflict disrupting healthcare",
-            "country": "Sudan",
-            "source": "UNICEF",
-            "score": 5,
-            "risk": "MODERATE",
-            "timestamp": datetime.now()
         }
     ])
 
-df = load_data()
+df = fetch_from_backend()
 df = df[df["country"] == country]
 
 # -----------------------------
@@ -65,27 +57,27 @@ high = (df["risk"] == "HIGH").sum()
 moderate = (df["risk"] == "MODERATE").sum()
 low = (df["risk"] == "LOW").sum()
 
-c1, c2, c3 = st.columns(3)
-c1.metric("🔴 High", high)
-c2.metric("🟠 Moderate", moderate)
-c3.metric("🟢 Low", low)
+col1, col2, col3 = st.columns(3)
+col1.metric("🔴 High", high)
+col2.metric("🟠 Moderate", moderate)
+col3.metric("🟢 Low", low)
 
 st.divider()
 
 # -----------------------------
 # ALERT ENGINE (DISPLAY ONLY)
 # -----------------------------
-score = df["score"].sum()
+total_score = df["score"].sum()
 
-if score >= 8:
+if total_score >= 8:
     alert = "CRITICAL"
     st.error("🚨 CRITICAL GLOBAL HEALTH ALERT")
 
-elif score >= 5:
+elif total_score >= 5:
     alert = "ELEVATED"
     st.warning("⚠️ ELEVATED HEALTH RISK")
 
-elif score >= 2:
+elif total_score >= 2:
     alert = "WATCH"
     st.info("🔎 WATCH STATUS")
 
@@ -100,34 +92,35 @@ st.subheader("📊 Intelligence Feed")
 st.dataframe(df, use_container_width=True)
 
 # -----------------------------
-# SYSTEM STATUS
+# SYSTEM ARCHITECTURE VIEW
 # -----------------------------
-st.subheader("⚙️ System Status")
+st.subheader("🧠 System Architecture (RW-16 Design)")
 
-st.write(f"""
-- Country: **{country}**
-- Alert Level: **{alert}**
-- Events Loaded: **{len(df)}**
-- Last Update: **{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}**
+st.code("""
+[ Data Sources (WHO / GDELT / APIs) ]
+                ↓
+        [ Backend API Layer ]
+                ↓
+        [ Intelligence Engine ]
+                ↓
+        [ Database (PostgreSQL) ]
+                ↓
+        [ Streamlit Frontend ]
 """)
 
 # -----------------------------
-# ARCHITECTURE VIEW
+# BACKEND INTEGRATION PLACEHOLDER
 # -----------------------------
-st.subheader("🧠 System Architecture")
+st.subheader("🔌 Backend Integration Status")
 
-st.code("""
-[ Backend Ingestion Layer ]
-        ↓
-[ Intelligence Engine ]
-        ↓
-[ Database Storage ]
-        ↓
-[ Streamlit Visualization Layer ]
+st.write("""
+- Backend API: **NOT CONNECTED (placeholder mode)**
+- Data Source: **Simulated**
+- Next Step: Connect FastAPI + Live Data Ingestion
 """)
 
 # -----------------------------
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.caption("RW-15 - Clean Frontend Layer for Global Health Intelligence System")
+st.caption("RW-16 - Clean Production Frontend for Global Health Intelligence System")
