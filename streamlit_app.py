@@ -1,84 +1,64 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+import time
 from datetime import datetime
 
 # -----------------------------
 # CONFIG
 # -----------------------------
-st.set_page_config(page_title="RW-10 Global Health Intelligence", layout="wide")
+st.set_page_config(page_title="RW-11 Live Intelligence", layout="wide")
 
-st.title("🌍 Global Health Intelligence Platform (RW-10)")
-st.caption("Operational outbreak intelligence system with trends, sources, and exports")
+st.title("🌍 RW-11 Live Global Health Intelligence System")
+st.caption("Real-time streaming architecture simulation")
 
 # -----------------------------
-# SIDEBAR FILTERS
+# AUTO REFRESH (SIMULATED STREAM)
+# -----------------------------
+st.info("🔄 System updating every cycle (simulated live feed)")
+
+# -----------------------------
+# SIDEBAR
 # -----------------------------
 country = st.sidebar.selectbox(
     "Select Country",
     ["Ethiopia", "Kenya", "Sudan", "Somalia", "South Sudan"]
 )
 
-risk_filter = st.sidebar.multiselect(
-    "Filter Risk Level",
-    ["HIGH", "MODERATE", "LOW"],
-    default=["HIGH", "MODERATE", "LOW"]
-)
-
-source_filter = st.sidebar.multiselect(
-    "Filter Source",
-    ["WHO", "Africa CDC", "UNICEF", "ReliefWeb"],
-    default=["WHO", "Africa CDC", "UNICEF", "ReliefWeb"]
+refresh_speed = st.sidebar.slider(
+    "Refresh speed (seconds)",
+    3, 10, 5
 )
 
 # -----------------------------
-# DATA (SIMULATED REAL-WORLD STRUCTURE)
+# LIVE EVENT STREAM (SIMULATED)
 # -----------------------------
-data = [
-    {
-        "event": "Cholera outbreak reported",
-        "country": "Ethiopia",
-        "source": "WHO",
-        "date": "2026-05-15"
-    },
-    {
-        "event": "Flooding affecting hospitals",
-        "country": "Kenya",
-        "source": "ReliefWeb",
-        "date": "2026-05-14"
-    },
-    {
-        "event": "Conflict limiting healthcare access",
-        "country": "Sudan",
-        "source": "UNICEF",
-        "date": "2026-05-13"
-    },
-    {
-        "event": "Malaria surge detected",
-        "country": "Somalia",
-        "source": "Africa CDC",
-        "date": "2026-05-12"
-    },
-    {
-        "event": "Food insecurity crisis escalating",
-        "country": "South Sudan",
-        "source": "WHO",
-        "date": "2026-05-11"
-    }
-]
+def generate_events():
 
-df = pd.DataFrame(data)
+    base_events = [
+        {"event": "Cholera outbreak detected", "country": "Ethiopia"},
+        {"event": "Flood impacts hospitals", "country": "Kenya"},
+        {"event": "Conflict disrupts healthcare", "country": "Sudan"},
+        {"event": "Malaria surge reported", "country": "Somalia"},
+        {"event": "Food insecurity rising", "country": "South Sudan"}
+    ]
 
-# -----------------------------
-# FILTER DATA
-# -----------------------------
+    # simulate "live variation"
+    import random
+
+    for e in base_events:
+        e["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        e["random_noise"] = random.randint(1, 100)
+
+    return pd.DataFrame(base_events)
+
+df = generate_events()
 df = df[df["country"] == country]
-df = df[df["source"].isin(source_filter)]
 
 # -----------------------------
 # RISK ENGINE
 # -----------------------------
 def score(text):
+
     text = text.lower()
 
     high = ["cholera", "outbreak", "epidemic", "pandemic", "emergency"]
@@ -106,8 +86,6 @@ def classify(s):
     return "LOW"
 
 df["risk"] = df["score"].apply(classify)
-
-df = df[df["risk"].isin(risk_filter)]
 
 # -----------------------------
 # METRICS
@@ -143,68 +121,25 @@ else:
     st.success("🟢 STABLE CONDITIONS")
 
 # -----------------------------
-# INTELLIGENCE FEED
+# LIVE FEED
 # -----------------------------
-st.subheader("📊 Intelligence Feed")
+st.subheader("📊 Live Intelligence Feed")
 st.dataframe(df, use_container_width=True)
 
 # -----------------------------
-# TREND ANALYTICS
+# LIVE STATUS
 # -----------------------------
-st.subheader("📈 Trend Analysis")
+st.subheader("⏱️ Live System Status")
 
-trend_score = (high * 3) + moderate
-
-if trend_score >= 6:
-    trend = "RISING RISK 📈"
-elif trend_score >= 3:
-    trend = "WATCH LIST ⚠️"
-else:
-    trend = "LOW RISK 📉"
-
-st.write(f"Trend Status: **{trend}**")
-
-# chart
-fig, ax = plt.subplots()
-ax.plot([high, moderate, low])
-ax.set_title("Risk Trend Snapshot")
-st.pyplot(fig)
+st.write(f"""
+- Last Update: {datetime.now().strftime('%H:%M:%S')}
+- Country: **{country}**
+- Alert Level: **{alert}**
+- Events Processed: {len(df)}
+""")
 
 # -----------------------------
-# AI REPORT
+# AUTO REFRESH LOOP
 # -----------------------------
-st.subheader("🧠 AI Situation Report")
-
-report = f"""
-Country: {country}
-Date: {datetime.now().strftime('%Y-%m-%d')}
-
-Alert Level: {alert}
-Trend: {trend}
-
-High signals: {high}
-Moderate signals: {moderate}
-Low signals: {low}
-
-Recommendation:
-{"Activate emergency response immediately." if alert=="CRITICAL"
-else "Increase surveillance and monitoring." if alert=="ELEVATED"
-else "Maintain routine monitoring."}
-"""
-
-st.text(report)
-
-# -----------------------------
-# EXPORT
-# -----------------------------
-st.download_button(
-    "⬇️ Download Report",
-    report,
-    file_name=f"{country}_RW10_report.txt"
-)
-
-# -----------------------------
-# FOOTER
-# -----------------------------
-st.markdown("---")
-st.caption("RW-10 - Operational Global Health Intelligence Platform")
+time.sleep(refresh_speed)
+st.rerun()
