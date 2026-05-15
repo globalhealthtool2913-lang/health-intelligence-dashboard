@@ -1,61 +1,69 @@
 import streamlit as st
+import requests
 import pandas as pd
-from datetime import datetime
 
 # -----------------------------
 # CONFIG
 # -----------------------------
 st.set_page_config(
-    page_title="RW-16 Global Health Intelligence",
+    page_title="RW-17 Global Health Intelligence",
     layout="wide"
 )
 
-st.title("🌍 RW-16 Global Health Intelligence Platform")
-st.caption("Production-ready frontend (connected to backend architecture)")
+st.title("🌍 RW-17 Live Global Health Intelligence Dashboard")
+st.caption("Frontend-only system connected to FastAPI backend")
 
 # -----------------------------
-# SIDEBAR
+# BACKEND URL
 # -----------------------------
-country = st.sidebar.selectbox(
-    "Select Country",
-    ["Ethiopia", "Kenya", "Sudan", "Somalia", "South Sudan"]
-)
-
-st.sidebar.info("This UI is designed to connect to a live backend API (RW-17+).")
+API_URL = "http://localhost:8000/events"
 
 # -----------------------------
-# SIMULATED BACKEND RESPONSE (PLACEHOLDER)
+# LOAD DATA FROM BACKEND
 # -----------------------------
-def fetch_from_backend():
+def load_data():
 
-    return pd.DataFrame([
-        {
-            "event": "Cholera outbreak reported",
-            "country": "Ethiopia",
-            "source": "WHO",
-            "score": 8,
-            "risk": "HIGH",
-            "timestamp": datetime.now()
-        },
-        {
-            "event": "Flood affecting hospitals",
-            "country": "Kenya",
-            "source": "ReliefWeb",
-            "score": 4,
-            "risk": "MODERATE",
-            "timestamp": datetime.now()
-        }
-    ])
+    try:
+        response = requests.get(API_URL, timeout=5)
+        data = response.json()
 
-df = fetch_from_backend()
-df = df[df["country"] == country]
+        if len(data) == 0:
+            return pd.DataFrame()
+
+        return pd.DataFrame(data)
+
+    except:
+        st.error("❌ Backend not connected. Start FastAPI server.")
+        return pd.DataFrame()
+
+df = load_data()
+
+# -----------------------------
+# COUNTRY FILTER (IF AVAILABLE)
+# -----------------------------
+if not df.empty and "country" in df.columns:
+
+    country = st.sidebar.selectbox(
+        "Select Country",
+        sorted(df["country"].unique())
+    )
+
+    df = df[df["country"] == country]
+
+else:
+    country = "N/A"
 
 # -----------------------------
 # METRICS
 # -----------------------------
-high = (df["risk"] == "HIGH").sum()
-moderate = (df["risk"] == "MODERATE").sum()
-low = (df["risk"] == "LOW").sum()
+if not df.empty and "risk" in df.columns:
+
+    high = (df["risk"] == "HIGH").sum()
+    moderate = (df["risk"] == "MODERATE").sum()
+    low = (df["risk"] == "LOW").sum()
+
+else:
+    high, moderate, low = 0, 0, 0
 
 col1, col2, col3 = st.columns(3)
 col1.metric("🔴 High", high)
@@ -65,62 +73,42 @@ col3.metric("🟢 Low", low)
 st.divider()
 
 # -----------------------------
-# ALERT ENGINE (DISPLAY ONLY)
+# ALERT DISPLAY (NO LOGIC HERE)
 # -----------------------------
-total_score = df["score"].sum()
+if not df.empty and "score" in df.columns:
 
-if total_score >= 8:
-    alert = "CRITICAL"
-    st.error("🚨 CRITICAL GLOBAL HEALTH ALERT")
+    total_score = df["score"].sum()
 
-elif total_score >= 5:
-    alert = "ELEVATED"
-    st.warning("⚠️ ELEVATED HEALTH RISK")
+    if total_score >= 8:
+        st.error("🚨 CRITICAL GLOBAL HEALTH ALERT")
+        alert = "CRITICAL"
 
-elif total_score >= 2:
-    alert = "WATCH"
-    st.info("🔎 WATCH STATUS")
+    elif total_score >= 5:
+        st.warning("⚠️ ELEVATED RISK")
+        alert = "ELEVATED"
+
+    elif total_score >= 2:
+        st.info("🔎 WATCH STATUS")
+        alert = "WATCH"
+
+    else:
+        st.success("🟢 STABLE CONDITIONS")
+        alert = "STABLE"
 
 else:
-    alert = "STABLE"
-    st.success("🟢 STABLE CONDITIONS")
+    alert = "NO DATA"
 
 # -----------------------------
-# INTELLIGENCE FEED
+# DATA DISPLAY
 # -----------------------------
 st.subheader("📊 Intelligence Feed")
-st.dataframe(df, use_container_width=True)
+
+if df.empty:
+    st.info("No data available from backend.")
+else:
+    st.dataframe(df, use_container_width=True)
 
 # -----------------------------
-# SYSTEM ARCHITECTURE VIEW
+# SYSTEM STATUS
 # -----------------------------
-st.subheader("🧠 System Architecture (RW-16 Design)")
-
-st.code("""
-[ Data Sources (WHO / GDELT / APIs) ]
-                ↓
-        [ Backend API Layer ]
-                ↓
-        [ Intelligence Engine ]
-                ↓
-        [ Database (PostgreSQL) ]
-                ↓
-        [ Streamlit Frontend ]
-""")
-
-# -----------------------------
-# BACKEND INTEGRATION PLACEHOLDER
-# -----------------------------
-st.subheader("🔌 Backend Integration Status")
-
-st.write("""
-- Backend API: **NOT CONNECTED (placeholder mode)**
-- Data Source: **Simulated**
-- Next Step: Connect FastAPI + Live Data Ingestion
-""")
-
-# -----------------------------
-# FOOTER
-# -----------------------------
-st.markdown("---")
-st.caption("RW-16 - Clean Production Frontend for Global Health Intelligence System")
+st.subheader
