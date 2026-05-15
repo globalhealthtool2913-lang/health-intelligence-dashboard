@@ -7,24 +7,24 @@ import pandas as pd
 # -----------------------------
 st.set_page_config(page_title="Global Health Intelligence", layout="wide")
 
-st.title("🌍 Global Health Intelligence System")
-st.caption("AI-powered surveillance dashboard (production-ready structure)")
+st.title("🌍 Global Health Intelligence Dashboard")
+st.caption("AI-powered surveillance + ML-ready system")
 
 # -----------------------------
-# BACKEND URL (CHANGE THIS IN DEPLOYMENT)
+# BACKEND URL (CHANGE AFTER DEPLOYMENT)
 # -----------------------------
 API_BASE = "http://localhost:8000"
 
 # -----------------------------
-# SAFE REQUESTS (NO BREAKS)
+# SAFE API FUNCTIONS
 # -----------------------------
-def get_events():
+def fetch_events():
     try:
         return requests.get(f"{API_BASE}/events", timeout=3).json()
     except:
         return None
 
-def get_prediction(payload):
+def fetch_prediction(payload):
     try:
         return requests.post(f"{API_BASE}/predict", json=payload, timeout=3).json()
     except:
@@ -33,24 +33,24 @@ def get_prediction(payload):
 # -----------------------------
 # LOAD DATA
 # -----------------------------
-raw = get_events()
+data = fetch_events()
 
-if raw:
-    df = pd.DataFrame(raw)
-    backend_status = "🟢 LIVE BACKEND"
+if data:
+    df = pd.DataFrame(data)
+    status = "🟢 LIVE BACKEND"
 else:
     df = pd.DataFrame([
         {"country": "Ethiopia", "risk": "HIGH", "score": 9},
         {"country": "Kenya", "risk": "MODERATE", "score": 5},
         {"country": "Uganda", "risk": "LOW", "score": 2}
     ])
-    backend_status = "🔴 OFFLINE (USING SAMPLE DATA)"
+    status = "🔴 OFFLINE (SAMPLE DATA MODE)"
 
 # -----------------------------
 # STATUS
 # -----------------------------
 st.subheader("⚙️ System Status")
-st.write(f"Backend Status: {backend_status}")
+st.write(f"Backend Status: {status}")
 
 # -----------------------------
 # COUNTRY FILTER
@@ -74,13 +74,13 @@ col3.metric("🟢 Low", low)
 st.divider()
 
 # -----------------------------
-# ML PREDICTION SECTION
+# ML PREDICTION ENGINE
 # -----------------------------
 st.subheader("🧠 AI Prediction Engine")
 
 if st.button("Run Prediction"):
 
-    result = get_prediction({
+    result = fetch_prediction({
         "high": int(high),
         "moderate": int(moderate),
         "low": int(low)
@@ -91,14 +91,12 @@ if st.button("Run Prediction"):
         st.metric("🔮 Probability", round(result["probability"], 2))
 
         if result["probability"] > 0.7:
-            st.error("🚨 High Risk Detected")
+            st.error("🚨 High Risk Alert")
         elif result["probability"] > 0.4:
             st.warning("⚠️ Moderate Risk")
         else:
             st.success("🟢 Low Risk")
-
     else:
-        # fallback logic
         score = (high * 4) + (moderate * 2) + low
         prob = min(score / 12, 1.0)
 
@@ -129,14 +127,14 @@ st.subheader("📊 Intelligence Feed")
 st.dataframe(df, use_container_width=True)
 
 # -----------------------------
-# ARCHITECTURE
+# ARCHITECTURE VIEW
 # -----------------------------
 st.subheader("🧠 System Architecture")
 
 st.code("""
 [ Data Sources ]
       ↓
-[ Optional FastAPI Backend ]
+[ FastAPI Backend (optional) ]
       ↓
 [ ML Prediction Engine ]
       ↓
@@ -147,4 +145,4 @@ st.code("""
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.caption("Stable Global Health Intelligence System — Production Ready Design")
+st.caption("Global Health Intelligence System — Production-Ready Design")
