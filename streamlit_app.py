@@ -7,12 +7,18 @@ import random
 # CONFIG
 # -----------------------------
 st.set_page_config(
-    page_title="RW-12 Global Health Intelligence",
+    page_title="RW-13 Global Health Intelligence",
     layout="wide"
 )
 
-st.title("🌍 RW-12 Global Health Intelligence Platform")
-st.caption("Architecture-level surveillance system (pipeline-based design)")
+st.title("🌍 RW-13 Global Health Intelligence System")
+st.caption("Advanced intelligence architecture with trend memory + scoring engine")
+
+# -----------------------------
+# SESSION MEMORY (SIMULATED DATABASE)
+# -----------------------------
+if "history" not in st.session_state:
+    st.session_state.history = []
 
 # -----------------------------
 # SIDEBAR
@@ -22,37 +28,30 @@ country = st.sidebar.selectbox(
     ["Ethiopia", "Kenya", "Sudan", "Somalia", "South Sudan"]
 )
 
-st.sidebar.markdown("### Filters")
-show_high = st.sidebar.checkbox("High Risk", True)
-show_mod = st.sidebar.checkbox("Moderate Risk", True)
-show_low = st.sidebar.checkbox("Low Risk", True)
+st.sidebar.markdown("### Controls")
+run_cycle = st.sidebar.button("🔄 Run Intelligence Cycle")
 
 # -----------------------------
-# SIMULATED DATA PIPELINE (RW-12 STYLE)
+# SIMULATED DATA INGESTION LAYER
 # -----------------------------
 def ingest_data():
 
-    base = [
+    base_events = [
         {"event": "Cholera outbreak reported", "country": "Ethiopia", "source": "WHO"},
-        {"event": "Flood affecting hospitals", "country": "Kenya", "source": "ReliefWeb"},
+        {"event": "Flooding affecting hospitals", "country": "Kenya", "source": "ReliefWeb"},
         {"event": "Conflict limiting healthcare access", "country": "Sudan", "source": "UNICEF"},
         {"event": "Malaria surge detected", "country": "Somalia", "source": "Africa CDC"},
         {"event": "Food insecurity worsening", "country": "South Sudan", "source": "WHO"}
     ]
 
-    # simulate dynamic updates
-    for b in base:
-        b["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        b["noise"] = random.randint(1, 100)
+    for e in base_events:
+        e["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        e["noise"] = random.randint(1, 100)
 
-    return pd.DataFrame(base)
-
-df = ingest_data()
-
-df = df[df["country"] == country]
+    return pd.DataFrame(base_events)
 
 # -----------------------------
-# RISK ENGINE (WEIGHTED RW-12 VERSION)
+# RISK ENGINE (WEIGHTED RW-13)
 # -----------------------------
 def risk_score(text):
 
@@ -65,7 +64,7 @@ def risk_score(text):
 
     for w in high:
         if w in text:
-            score += 3  # weighted higher
+            score += 3
 
     for w in moderate:
         if w in text:
@@ -73,41 +72,51 @@ def risk_score(text):
 
     return score
 
-df["score"] = df["event"].apply(risk_score)
+def classify(score):
 
-# -----------------------------
-# CLASSIFICATION ENGINE
-# -----------------------------
-def classify(s):
-
-    if s >= 6:
+    if score >= 6:
         return "HIGH"
-    elif s >= 3:
+    elif score >= 3:
         return "MODERATE"
     return "LOW"
 
-df["risk"] = df["score"].apply(classify)
+# -----------------------------
+# RUN INTELLIGENCE CYCLE
+# -----------------------------
+if run_cycle:
+
+    df = ingest_data()
+    df = df[df["country"] == country]
+
+    df["score"] = df["event"].apply(risk_score)
+    df["risk"] = df["score"].apply(classify)
+
+    # store in "memory"
+    st.session_state.history.append(df)
 
 # -----------------------------
-# FILTERING
+# DISPLAY HISTORY (SIMULATED DATABASE)
 # -----------------------------
-allowed = []
-if show_high:
-    allowed.append("HIGH")
-if show_mod:
-    allowed.append("MODERATE")
-if show_low:
-    allowed.append("LOW")
+st.subheader("🗄️ Intelligence History (Session Memory)")
 
-df = df[df["risk"].isin(allowed)]
+if st.session_state.history:
+    history_df = pd.concat(st.session_state.history)
+    history_df = history_df[history_df["country"] == country]
+
+    st.dataframe(history_df, use_container_width=True)
+
+    high = int((history_df["risk"] == "HIGH").sum())
+    moderate = int((history_df["risk"] == "MODERATE").sum())
+    low = int((history_df["risk"] == "LOW").sum())
+
+else:
+    st.info("Run an intelligence cycle to generate data.")
+
+    high, moderate, low = 0, 0, 0
 
 # -----------------------------
 # METRICS
 # -----------------------------
-high = int((df["risk"] == "HIGH").sum())
-moderate = int((df["risk"] == "MODERATE").sum())
-low = int((df["risk"] == "LOW").sum())
-
 c1, c2, c3 = st.columns(3)
 c1.metric("🔴 High", high)
 c2.metric("🟠 Moderate", moderate)
@@ -116,56 +125,48 @@ c3.metric("🟢 Low", low)
 st.divider()
 
 # -----------------------------
-# ALERT ENGINE (RW-12 REALISTIC)
+# TREND ENGINE (CORE RW-13 FEATURE)
 # -----------------------------
 trend_score = (high * 3) + moderate
 
-if trend_score >= 8:
+if "trend_history" not in st.session_state:
+    st.session_state.trend_history = []
+
+st.session_state.trend_history.append(trend_score)
+
+if len(st.session_state.trend_history) > 1:
+    if st.session_state.trend_history[-1] > st.session_state.trend_history[-2]:
+        trend = "RISING 📈"
+    elif st.session_state.trend_history[-1] < st.session_state.trend_history[-2]:
+        trend = "DECLINING 📉"
+    else:
+        trend = "STABLE ➖"
+else:
+    trend = "INITIALIZING"
+
+# -----------------------------
+# ALERT ENGINE (REALISTIC RW-13)
+# -----------------------------
+if trend_score > 8 and trend == "RISING 📈":
     alert = "CRITICAL"
-    st.error("🚨 CRITICAL GLOBAL HEALTH ALERT")
-
-elif trend_score >= 5:
+elif trend_score > 5:
     alert = "ELEVATED"
-    st.warning("⚠️ ELEVATED HEALTH RISK")
-
-elif trend_score >= 2:
+elif trend_score > 2:
     alert = "WATCH"
-    st.info("🔎 WATCH STATUS")
-
 else:
     alert = "STABLE"
-    st.success("🟢 STABLE CONDITIONS")
 
 # -----------------------------
-# INTELLIGENCE FEED
+# SUMMARY DASHBOARD
 # -----------------------------
-st.subheader("📊 Intelligence Feed")
-st.dataframe(df, use_container_width=True)
+st.subheader("📊 Intelligence Summary")
 
-# -----------------------------
-# PIPELINE VISUALIZATION (SIMPLE RW-12 MODEL)
-# -----------------------------
-st.subheader("⚙️ Processing Pipeline")
-
-st.code("""
-DATA INGESTION → CLEANING → RISK SCORING → CLASSIFICATION → ALERT ENGINE → DASHBOARD
+st.write(f"""
+- Country: **{country}**
+- Alert Level: **{alert}**
+- Trend Status: **{trend}**
+- Trend Score: **{trend_score}**
 """)
-
-# -----------------------------
-# TREND ANALYSIS
-# -----------------------------
-st.subheader("📈 Trend Intelligence")
-
-trend = "STABLE"
-
-if trend_score >= 8:
-    trend = "RISING FAST 📈"
-elif trend_score >= 5:
-    trend = "MODERATE RISK ⚠️"
-elif trend_score >= 2:
-    trend = "LOW ACTIVITY 📉"
-
-st.write(f"Trend Status: **{trend}**")
 
 # -----------------------------
 # AI REPORT
@@ -173,28 +174,26 @@ st.write(f"Trend Status: **{trend}**")
 st.subheader("🧠 AI Situation Report")
 
 st.write(f"""
-### RW-12 Intelligence Summary
+### RW-13 Intelligence Output
 
-- Country: **{country}**
-- Alert Level: **{alert}**
-- Trend Status: **{trend}**
+This system is monitoring **{country}** using a multi-cycle intelligence engine.
 
-### Metrics
-- High: {high}
-- Moderate: {moderate}
-- Low: {low}
+### Key Findings
+- High-risk signals: {high}
+- Moderate-risk signals: {moderate}
+- Low-risk signals: {low}
 
 ### Interpretation
-This reflects a **{alert.lower()}-level operational intelligence environment**.
+The system indicates a **{alert.lower()}-level operational environment**.
 
 ### Recommendation
-{"Activate emergency coordination immediately." if alert=="CRITICAL"
-else "Increase surveillance operations." if alert=="ELEVATED"
-else "Maintain monitoring systems."}
+{"Activate emergency response protocols." if alert=="CRITICAL"
+else "Increase surveillance intensity." if alert=="ELEVATED"
+else "Maintain routine monitoring operations."}
 """)
 
 # -----------------------------
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.caption("RW-12 - Architecture-Level Global Health Intelligence System")
+st.caption("RW-13 - Intelligence System with Memory + Trend Evolution")
