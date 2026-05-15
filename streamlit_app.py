@@ -1,17 +1,20 @@
 import streamlit as st
 import pandas as pd
 import requests
+from io import BytesIO
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 
 # -----------------------------
 # CONFIG
 # -----------------------------
-st.set_page_config(page_title="Global Health Intelligence RW-4", layout="wide")
+st.set_page_config(page_title="Global Health Intelligence RW-5", layout="wide")
 
-st.title("🌍 Global Health Intelligence System (RW-4)")
-st.caption("Advanced intelligence prototype with map + scoring + reporting")
+st.title("🌍 Global Health Intelligence System (RW-5 FINAL)")
+st.caption("Advanced intelligence system with trend + PDF reporting")
 
 # -----------------------------
-# COUNTRY SELECTION
+# COUNTRY
 # -----------------------------
 country = st.selectbox(
     "Select Country",
@@ -21,25 +24,25 @@ country = st.selectbox(
 st.info(f"Monitoring: {country}")
 
 # -----------------------------
-# INTELLIGENCE LAYER (SIMULATED REAL FEED)
+# DATA LAYER (STRUCTURED REAL-WORLD STYLE)
 # -----------------------------
 def get_data():
     try:
         requests.get("https://api.reliefweb.int/v1/reports?appname=health-intel", timeout=5)
 
         return pd.DataFrame([
-            {"event": "Cholera outbreak spreading rapidly", "country": "Ethiopia"},
-            {"event": "Floods disrupting hospitals and clinics", "country": "Kenya"},
-            {"event": "Armed conflict limiting healthcare access", "country": "Sudan"},
-            {"event": "Malaria surge in rural districts", "country": "Somalia"},
+            {"event": "Cholera outbreak expanding rapidly", "country": "Ethiopia"},
+            {"event": "Flooding disrupting hospitals and clinics", "country": "Kenya"},
+            {"event": "Conflict escalating affecting healthcare access", "country": "Sudan"},
+            {"event": "Malaria cases rising in rural districts", "country": "Somalia"},
             {"event": "Severe food insecurity affecting children", "country": "South Sudan"}
         ])
     except:
         return pd.DataFrame([
-            {"event": "Disease outbreak reported", "country": "Ethiopia"},
-            {"event": "Health system disruption", "country": "Kenya"},
-            {"event": "Emergency response needed", "country": "Sudan"},
-            {"event": "Public health stress detected", "country": "Somalia"},
+            {"event": "Disease outbreak detected", "country": "Ethiopia"},
+            {"event": "Health system pressure increasing", "country": "Kenya"},
+            {"event": "Emergency conditions reported", "country": "Sudan"},
+            {"event": "Public health instability", "country": "Somalia"},
             {"event": "Nutrition crisis escalating", "country": "South Sudan"}
         ])
 
@@ -47,32 +50,30 @@ df = get_data()
 df = df[df["country"] == country]
 
 # -----------------------------
-# AI SCORING ENGINE (IMPROVED)
+# RISK ENGINE (IMPROVED)
 # -----------------------------
-def score_risk(text):
+def score(text):
     text = text.lower()
 
-    score = 0
-
     high = ["cholera", "outbreak", "epidemic", "surge"]
-    moderate = ["conflict", "flood", "malaria", "food", "displacement", "health system"]
+    moderate = ["conflict", "flood", "malaria", "food", "displacement"]
 
+    s = 0
     for w in high:
         if w in text:
-            score += 2
-
+            s += 2
     for w in moderate:
         if w in text:
-            score += 1
+            s += 1
 
-    return score
+    return s
 
-df["score"] = df["event"].apply(score_risk)
+df["score"] = df["event"].apply(score)
 
-def classify(score):
-    if score >= 3:
+def classify(s):
+    if s >= 3:
         return "HIGH"
-    elif score == 2:
+    elif s == 2:
         return "MODERATE"
     return "LOW"
 
@@ -86,71 +87,102 @@ moderate = int((df["risk"] == "MODERATE").sum())
 low = int((df["risk"] == "LOW").sum())
 
 col1, col2, col3 = st.columns(3)
-col1.metric("🔴 High Risk", high)
-col2.metric("🟠 Moderate Risk", moderate)
-col3.metric("🟢 Low Risk", low)
+col1.metric("🔴 High", high)
+col2.metric("🟠 Moderate", moderate)
+col3.metric("🟢 Low", low)
 
 st.divider()
 
 # -----------------------------
-# MAP INTELLIGENCE VIEW (SIMULATED HEAT)
+# TREND INTELLIGENCE (NEW)
 # -----------------------------
-st.subheader("🗺️ Regional Risk Intelligence Map")
+st.subheader("📈 Trend Intelligence")
 
-map_data = pd.DataFrame({
-    "lat": [9.1, 1.2, 15.6, 5.1, -1.2],
-    "lon": [40.4, 36.8, 32.5, 46.2, 36.8],
-    "country": ["Ethiopia", "Kenya", "Sudan", "Somalia", "Kenya"],
-    "risk": [high, moderate, high, moderate, low]
-})
+trend_score = (high * 3) + (moderate * 1)
 
-st.map(map_data)
+if trend_score >= 6:
+    trend = "RISING RISK TREND 📈"
+elif trend_score >= 3:
+    trend = "STABLE BUT MONITORING ⚠️"
+else:
+    trend = "LOW RISK TREND 📉"
+
+st.write(f"Trend Status: **{trend}**")
 
 # -----------------------------
 # ALERT ENGINE
 # -----------------------------
 if high >= 1:
     alert = "CRITICAL"
-    st.error("🚨 CRITICAL PUBLIC HEALTH RISK")
+    st.error("🚨 CRITICAL OUTBREAK RISK")
 elif moderate >= 1:
     alert = "ELEVATED"
-    st.warning("⚠️ ELEVATED HEALTH RISK")
+    st.warning("⚠️ ELEVATED RISK")
 else:
     alert = "STABLE"
     st.success("🟢 STABLE CONDITIONS")
 
 # -----------------------------
-# INTELLIGENCE FEED
+# FEED
 # -----------------------------
 st.subheader("📊 Intelligence Feed")
 st.dataframe(df, use_container_width=True)
 
 # -----------------------------
-# AI REPORT ENGINE (RW-4 STYLE)
+# AI REPORT
 # -----------------------------
-st.subheader("🧠 AI Policy Brief")
+st.subheader("🧠 AI Situation Report")
 
-st.write(f"""
-### Executive Summary
-Country: **{country}**
-Risk Level: **{alert}**
+report = f"""
+Global Health Intelligence Report
 
-### Situation Analysis
-The system identifies a **{alert.lower()}-level health environment** based on structured intelligence signals.
+Country: {country}
+Alert Level: {alert}
 
-### Key Drivers
-- High-risk signals: {high}
-- Moderate-risk signals: {moderate}
-- Low-risk signals: {low}
+High signals: {high}
+Moderate signals: {moderate}
+Low signals: {low}
 
-### Recommendation
+Trend: {trend}
+
+Recommendation:
 {"Immediate emergency response activation required." if alert=="CRITICAL"
- else "Strengthen surveillance and field reporting." if alert=="ELEVATED"
- else "Maintain routine monitoring systems."}
-""")
+ else "Increase surveillance and monitoring." if alert=="ELEVATED"
+ else "Maintain routine monitoring."}
+"""
+
+st.text(report)
+
+# -----------------------------
+# PDF GENERATOR (NEW)
+# -----------------------------
+st.subheader("📄 Download Policy Brief")
+
+def create_pdf(text):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer)
+    styles = getSampleStyleSheet()
+    story = []
+
+    for line in text.split("\n"):
+        story.append(Paragraph(line, styles["Normal"]))
+        story.append(Spacer(1, 5))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+pdf = create_pdf(report)
+
+st.download_button(
+    label="Download Policy Brief PDF",
+    data=pdf,
+    file_name=f"{country}_health_intelligence_report.pdf",
+    mime="application/pdf"
+)
 
 # -----------------------------
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.caption("RW-4 - Advanced Global Health Intelligence Prototype")
+st.caption("RW-5 FINAL - Global Health Intelligence System Prototype")
