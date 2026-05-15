@@ -1,27 +1,25 @@
 import streamlit as st
 import requests
 import pandas as pd
+import numpy as np
 
 # -----------------------------
 # CONFIG
 # -----------------------------
 st.set_page_config(
-    page_title="RW-18 Global Health Intelligence",
+    page_title="RW-19 Global Health Intelligence",
     layout="wide"
 )
 
-st.title("🌍 RW-18 Live Global Health Intelligence System")
-st.caption("Real-time dashboard connected to live backend pipeline")
+st.title("🌍 RW-19 Predictive Global Health Intelligence System")
+st.caption("AI-ready analytics dashboard (connected to RW-18 backend)")
 
 # -----------------------------
-# BACKEND API
+# BACKEND
 # -----------------------------
 API_URL = "http://localhost:8000/events"
 
-# -----------------------------
-# FETCH DATA
-# -----------------------------
-def fetch_data():
+def load_data():
 
     try:
         res = requests.get(API_URL, timeout=5)
@@ -33,13 +31,13 @@ def fetch_data():
         return pd.DataFrame(data)
 
     except:
-        st.error("❌ Backend not reachable. Start FastAPI ingestion service.")
+        st.error("❌ Backend not reachable (RW-18 required)")
         return pd.DataFrame()
 
-df = fetch_data()
+df = load_data()
 
 # -----------------------------
-# FILTERING
+# FILTER
 # -----------------------------
 if not df.empty and "country" in df.columns:
 
@@ -56,14 +54,17 @@ else:
 # -----------------------------
 # METRICS
 # -----------------------------
-if not df.empty and "risk" in df.columns:
+if not df.empty and "score" in df.columns:
 
-    high = (df["risk"] == "HIGH").sum()
-    moderate = (df["risk"] == "MODERATE").sum()
-    low = (df["risk"] == "LOW").sum()
+    scores = df["score"].tolist()
+
+    high = sum(df["risk"] == "HIGH")
+    moderate = sum(df["risk"] == "MODERATE")
+    low = sum(df["risk"] == "LOW")
 
 else:
-    high, moderate, low = 0, 0, 0
+    scores = []
+    high = moderate = low = 0
 
 col1, col2, col3 = st.columns(3)
 col1.metric("🔴 High", high)
@@ -73,26 +74,63 @@ col3.metric("🟢 Low", low)
 st.divider()
 
 # -----------------------------
-# ALERT DISPLAY (NO LOGIC HERE)
+# ANOMALY DETECTION (RW-19 CORE)
 # -----------------------------
-if not df.empty and "score" in df.columns:
+st.subheader("🧠 Anomaly Detection Engine")
 
-    total_score = df["score"].sum()
+if len(scores) > 2:
 
-    if total_score >= 8:
-        st.error("🚨 CRITICAL GLOBAL HEALTH ALERT")
+    mean = np.mean(scores)
+    std = np.std(scores)
+    threshold = mean + 2 * std
 
-    elif total_score >= 5:
-        st.warning("⚠️ ELEVATED RISK")
+    latest = scores[-1]
 
-    elif total_score >= 2:
-        st.info("🔎 WATCH STATUS")
-
+    if latest > threshold:
+        st.error("🚨 ANOMALY DETECTED: Unusual spike in health signals")
     else:
-        st.success("🟢 STABLE CONDITIONS")
+        st.success("🟢 No anomaly detected")
+
+    st.write(f"- Mean Score: {mean:.2f}")
+    st.write(f"- Threshold: {threshold:.2f}")
+    st.write(f"- Latest Score: {latest}")
 
 else:
-    st.info("No active intelligence signals.")
+    st.info("Not enough data for anomaly detection")
+
+# -----------------------------
+# TREND ANALYSIS
+# -----------------------------
+st.subheader("📈 Trend Intelligence")
+
+if len(scores) > 1:
+
+    if scores[-1] > scores[-2]:
+        st.warning("📈 Increasing Risk Trend")
+        trend = "UP"
+    elif scores[-1] < scores[-2]:
+        st.info("📉 Decreasing Risk Trend")
+        trend = "DOWN"
+    else:
+        st.success("➡️ Stable Trend")
+        trend = "STABLE"
+
+else:
+    trend = "UNKNOWN"
+    st.info("Not enough data for trend analysis")
+
+# -----------------------------
+# SIMPLE FORECAST
+# -----------------------------
+st.subheader("🔮 Forecast (Simple Model)")
+
+if len(scores) >= 3:
+
+    forecast = np.mean(scores[-3:])
+    st.write(f"Predicted Next Risk Score: **{forecast:.2f}**")
+
+else:
+    st.info("Not enough data for forecast")
 
 # -----------------------------
 # INTELLIGENCE FEED
@@ -100,7 +138,7 @@ else:
 st.subheader("📊 Intelligence Feed")
 
 if df.empty:
-    st.warning("No data available from backend.")
+    st.warning("No backend data available")
 else:
     st.dataframe(df, use_container_width=True)
 
@@ -110,28 +148,26 @@ else:
 st.subheader("⚙️ System Status")
 
 st.write(f"""
-- System: **RW-18 Live Intelligence Pipeline**
-- Backend: **FastAPI (required)**
-- Data Source: **Live ingestion service**
-- Country View: **{country}**
+- System: RW-19 Predictive Intelligence Layer
+- Backend: RW-18 FastAPI required
+- Country: {country}
+- Trend: {trend}
 """)
 
 # -----------------------------
-# ARCHITECTURE VIEW
+# ARCHITECTURE
 # -----------------------------
 st.subheader("🧠 System Architecture")
 
 st.code("""
-[ Live External Data Sources ]
-            ↓
-[ Ingestion Service (FastAPI Worker) ]
-            ↓
-[ Intelligence Engine + Scoring ]
-            ↓
-[ Database (PostgreSQL / SQLite) ]
-            ↓
-[ API Layer ]
-            ↓
+[ Live Data Sources ]
+        ↓
+[ Ingestion Layer (RW-18 Backend) ]
+        ↓
+[ Storage (Database) ]
+        ↓
+[ AI Layer (RW-19: Anomaly + Trend + Forecast) ]
+        ↓
 [ Streamlit Dashboard ]
 """)
 
@@ -139,4 +175,4 @@ st.code("""
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.caption("RW-18 - Live Global Health Intelligence Dashboard (Frontend Only)")
+st.caption("RW-19 - Predictive Intelligence Dashboard")
