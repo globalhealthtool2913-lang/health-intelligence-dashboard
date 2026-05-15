@@ -6,12 +6,12 @@ import pandas as pd
 # CONFIG
 # -----------------------------
 st.set_page_config(
-    page_title="RW-21 Global Health Intelligence AI",
+    page_title="RW-22 Global Health ML System",
     layout="wide"
 )
 
-st.title("🌍 RW-21 AI-Powered Global Health Intelligence System")
-st.caption("Production ML dashboard connected to backend intelligence engine")
+st.title("🌍 RW-22 Real ML Global Health Intelligence System")
+st.caption("Dataset-trained ML pipeline dashboard")
 
 # -----------------------------
 # BACKEND
@@ -20,20 +20,17 @@ EVENTS_API = "http://localhost:8000/events"
 PREDICT_API = "http://localhost:8000/predict"
 
 # -----------------------------
-# LOAD EVENTS
+# LOAD DATA
 # -----------------------------
-def load_events():
-
+def load_data():
     try:
         res = requests.get(EVENTS_API, timeout=5)
-        data = res.json()
-        return pd.DataFrame(data) if data else pd.DataFrame()
-
+        return pd.DataFrame(res.json()) if res.json() else pd.DataFrame()
     except:
-        st.error("❌ Backend not running (RW-20/21 required)")
+        st.error("❌ Backend not running (RW-22 required)")
         return pd.DataFrame()
 
-df = load_events()
+df = load_data()
 
 # -----------------------------
 # COUNTRY FILTER
@@ -70,11 +67,11 @@ col3.metric("🟢 Low", low)
 st.divider()
 
 # -----------------------------
-# ML PREDICTION VIEW (FROM BACKEND)
+# ML PREDICTION (REAL MODEL OUTPUT)
 # -----------------------------
-st.subheader("🧠 Machine Learning Prediction Engine")
+st.subheader("🧠 ML Prediction Engine (RW-22)")
 
-if st.button("Run AI Prediction"):
+if st.button("Run Prediction"):
 
     try:
         response = requests.post(PREDICT_API, json={
@@ -86,49 +83,51 @@ if st.button("Run AI Prediction"):
         result = response.json()
 
         risk_score = result.get("risk_score", 0)
-        probability = result.get("probability", 0)
 
-        st.metric("📊 Risk Score", round(risk_score, 2))
-        st.metric("🔮 Outbreak Probability", f"{probability * 100:.1f}%")
+        st.metric("📊 Predicted Risk Score", round(risk_score, 2))
 
-        # ALERT LOGIC (DISPLAY ONLY)
-        if probability >= 0.7:
-            st.error("🚨 HIGH OUTBREAK RISK")
-        elif probability >= 0.4:
+        if risk_score > 8:
+            st.error("🚨 HIGH RISK DETECTED")
+        elif risk_score > 5:
             st.warning("⚠️ MODERATE RISK")
         else:
             st.success("🟢 LOW RISK")
 
     except:
-        st.error("❌ Prediction API not available")
+        st.error("❌ Prediction service unavailable")
 
 # -----------------------------
-# TREND VIEW (FROM DATA)
+# TREND ANALYSIS (FROM DATASET)
 # -----------------------------
 st.subheader("📈 Trend Intelligence")
 
-if not df.empty and "score" in df.columns:
+if not df.empty and "risk" in df.columns:
 
-    scores = df["score"].tolist()
+    values = []
 
-    if len(scores) > 2:
+    for r in df["risk"]:
+        if r == "HIGH":
+            values.append(3)
+        elif r == "MODERATE":
+            values.append(2)
+        else:
+            values.append(1)
 
-        trend = scores[-1] - scores[-2]
+    if len(values) > 2:
 
-        if trend > 0:
+        change = values[-1] - values[-2]
+
+        if change > 0:
             st.warning("📈 Increasing Risk Trend")
-        elif trend < 0:
+        elif change < 0:
             st.info("📉 Decreasing Risk Trend")
         else:
             st.success("➡️ Stable Trend")
 
-    else:
-        st.info("Not enough data for trend analysis")
-
 # -----------------------------
 # DATA TABLE
 # -----------------------------
-st.subheader("📊 Intelligence Feed")
+st.subheader("📊 Intelligence Dataset")
 
 if df.empty:
     st.warning("No backend data available")
@@ -141,9 +140,10 @@ else:
 st.subheader("⚙️ System Status")
 
 st.write(f"""
-- System: RW-21 ML Intelligence Layer
+- System: RW-22 ML Training Pipeline Dashboard
 - Backend: FastAPI required
-- ML Engine: Server-side model
+- Model Type: RandomForest Regressor (server-side)
+- Data: Dataset-trained
 - Country: {country}
 """)
 
@@ -153,15 +153,13 @@ st.write(f"""
 st.subheader("🧠 System Architecture")
 
 st.code("""
-[ Live Data Sources ]
+[ Real Dataset Sources ]
         ↓
-[ FastAPI Backend ]
+[ Data Cleaning + Feature Engineering ]
         ↓
-[ Feature Engineering Layer ]
+[ ML Training (RW-22 Model) ]
         ↓
-[ ML Model (RW-21) ]
-        ↓
-[ Prediction API ]
+[ FastAPI Prediction Service ]
         ↓
 [ Streamlit Dashboard ]
 """)
@@ -170,4 +168,4 @@ st.code("""
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.caption("RW-21 - Production AI Global Health Intelligence System")
+st.caption("RW-22 - Real ML Global Health Intelligence System")
