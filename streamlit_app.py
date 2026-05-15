@@ -11,7 +11,7 @@ st.set_page_config(
 )
 
 st.title("🌍 Global Health Intelligence Dashboard v3")
-st.markdown("Advanced AI-assisted monitoring for global health risks")
+st.markdown("AI-powered monitoring for global health risks and alerts")
 
 # -----------------------------
 # COUNTRY SELECTION
@@ -36,7 +36,7 @@ data = [
 df = pd.DataFrame(data)
 
 # -----------------------------
-# RISK SCORING
+# RISK LOGIC
 # -----------------------------
 def score_risk(text):
     text = text.lower()
@@ -53,8 +53,6 @@ def score_risk(text):
 
     return score
 
-df["score"] = df["title"].apply(score_risk)
-
 def risk_level(score):
     if score >= 60:
         return "HIGH"
@@ -63,10 +61,12 @@ def risk_level(score):
     else:
         return "LOW"
 
+# APPLY LOGIC
+df["score"] = df["title"].apply(score_risk)
 df["risk"] = df["score"].apply(risk_level)
 
 # -----------------------------
-# METRICS
+# METRICS (MUST COME AFTER RISK)
 # -----------------------------
 high = int((df["risk"] == "HIGH").sum())
 moderate = int((df["risk"] == "MODERATE").sum())
@@ -84,15 +84,16 @@ st.subheader("📊 Risk Intelligence Table")
 st.dataframe(df)
 
 # -----------------------------
-# CHART (FIXED)
+# CHART (FIXED + STABLE)
 # -----------------------------
 st.subheader("📈 Risk Distribution")
-
-fig, ax = plt.subplots()
 
 labels = ["High", "Moderate", "Low"]
 values = [high, moderate, low]
 
+st.write("Debug values:", values)
+
+fig, ax = plt.subplots()
 ax.bar(labels, values)
 ax.set_ylabel("Count")
 ax.set_title(f"Risk Distribution - {country}")
@@ -107,16 +108,14 @@ st.subheader("🤖 AI Insight Engine")
 total_risk = (high * 3) + (moderate * 2) + low
 
 if high > 0:
-    st.error("🚨 CRITICAL: High-risk health security threat detected.")
+    st.error("🚨 CRITICAL: High-risk health threat detected.")
 elif moderate >= 2:
     st.warning("⚠️ ELEVATED: Multiple moderate risks detected.")
-elif total_risk > 5:
-    st.info("ℹ️ WATCH: Some risk activity detected.")
 else:
-    st.success("✅ STABLE: No major health security threats detected.")
+    st.success("✅ STABLE: No major health threats detected.")
 
 # -----------------------------
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.markdown("v3 Fixed - AI-assisted Global Health Intelligence System")
+st.markdown("v3 Fixed Clean Version - Global Health Intelligence System")
