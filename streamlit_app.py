@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -7,12 +6,22 @@ import matplotlib.pyplot as plt
 # PAGE CONFIG
 # -----------------------------
 st.set_page_config(
-    page_title="Global Health Intelligence Dashboard",
+    page_title="Global Health Intelligence Dashboard v3",
     layout="wide"
 )
 
-st.title("🌍 Global Health Intelligence Dashboard")
-st.markdown("AI-powered monitoring for health security risks and alerts")
+st.title("🌍 Global Health Intelligence Dashboard v3")
+st.markdown("Advanced AI-assisted monitoring for global health risks")
+
+# -----------------------------
+# COUNTRY FILTER
+# -----------------------------
+country = st.selectbox(
+    "Select Country",
+    ["Ethiopia", "Kenya", "Sudan", "Somalia", "South Sudan"]
+)
+
+st.info(f"Monitoring health risks for: {country}")
 
 # -----------------------------
 # DATA
@@ -27,18 +36,20 @@ data = [
 df = pd.DataFrame(data)
 
 # -----------------------------
-# RISK SCORING
+# RISK MODEL (IMPROVED)
 # -----------------------------
 def score_risk(text):
     text = text.lower()
     score = 0
 
     if "conflict" in text:
-        score += 30
+        score += 35
     if "outbreak" in text:
-        score += 30
+        score += 35
     if "child" in text:
-        score += 15
+        score += 20
+    if "health" in text:
+        score += 10
 
     return score
 
@@ -47,7 +58,7 @@ df["score"] = df["title"].apply(score_risk)
 def risk_level(score):
     if score >= 60:
         return "HIGH"
-    elif score >= 30:
+    elif score >= 35:
         return "MODERATE"
     else:
         return "LOW"
@@ -69,7 +80,7 @@ col3.metric("Low Risk", low)
 # -----------------------------
 # TABLE
 # -----------------------------
-st.subheader("📊 Risk Analysis Table")
+st.subheader("📊 Risk Intelligence Table")
 st.dataframe(df)
 
 # -----------------------------
@@ -78,30 +89,30 @@ st.dataframe(df)
 st.subheader("📈 Risk Distribution")
 
 fig, ax = plt.subplots()
-ax.bar(
-    ["High", "Moderate", "Low"],
-    [high, moderate, low]
-)
-
+ax.bar(["High", "Moderate", "Low"], [high, moderate, low])
 ax.set_ylabel("Count")
-ax.set_title("Health Risk Levels")
+ax.set_title(f"Risk Profile - {country}")
 
 st.pyplot(fig)
 
 # -----------------------------
-# AI INSIGHT
+# AI INSIGHT (SMARTER)
 # -----------------------------
-st.subheader("🤖 AI Insight")
+st.subheader("🤖 AI Insight Engine")
+
+total_risk = high * 3 + moderate * 2 + low * 1
 
 if high > 0:
-    st.error("⚠️ High-risk signals detected. Immediate attention required.")
+    st.error("🚨 CRITICAL: High-risk health security threat detected.")
 elif moderate >= 2:
-    st.warning("⚠️ Moderate risk environment. Monitor closely.")
+    st.warning("⚠️ ELEVATED: Multiple moderate risks detected. Monitor closely.")
+elif total_risk > 5:
+    st.info("ℹ️ WATCH: Some risk activity detected, but stable overall.")
 else:
-    st.success("✅ Stable situation. No major risks detected.")
+    st.success("✅ STABLE: No significant health security threats detected.")
 
 # -----------------------------
 # FOOTER
 # -----------------------------
 st.markdown("---")
-st.markdown("Built for global health intelligence and early warning analysis")
+st.markdown("v3 - AI-assisted Global Health Intelligence System")
