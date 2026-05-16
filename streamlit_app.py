@@ -2,18 +2,18 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
-from sklearn.ensemble import IsolationForest
 import sqlite3
+from sklearn.ensemble import IsolationForest
 
-st.set_page_config(page_title="WHO Production Intelligence Pipeline", layout="wide")
+st.set_page_config(page_title="WHO Enterprise Intelligence System", layout="wide")
 
-st.title("🌍 WHO-Level Global Health Intelligence System")
-st.caption("Production pipeline: ingestion + storage + ML + dashboard (single file)")
+st.title("🌍 WHO Enterprise Global Health Intelligence System")
+st.caption("Production-grade multi-source intelligence (Streamlit-only architecture)")
 
-# -----------------------------
-# DATABASE (AUTO)
-# -----------------------------
-DB = "global_intel.db"
+# =========================
+# DATABASE
+# =========================
+DB = "enterprise_health.db"
 
 def init_db():
     conn = sqlite3.connect(DB)
@@ -41,10 +41,10 @@ def load():
 
 init_db()
 
-# -----------------------------
-# LIVE DATA SOURCES
-# -----------------------------
-def fetch_gdelt():
+# =========================
+# DATA SOURCES
+# =========================
+def get_gdelt():
     try:
         url = "https://api.gdeltproject.org/api/v2/doc/doc"
         params = {
@@ -66,7 +66,7 @@ def fetch_gdelt():
     except:
         return pd.DataFrame()
 
-def fetch_owid():
+def get_owid():
     try:
         url = "https://covid.ourworldindata.org/data/owid-covid-data.csv"
         df = pd.read_csv(url, low_memory=False)
@@ -80,11 +80,11 @@ def fetch_owid():
     except:
         return pd.DataFrame()
 
-# -----------------------------
-# INGEST (AUTO EACH RUN)
-# -----------------------------
-gdelt = fetch_gdelt()
-owid = fetch_owid()
+# =========================
+# INGEST + STORE
+# =========================
+gdelt = get_gdelt()
+owid = get_owid()
 
 frames = []
 if not gdelt.empty:
@@ -93,17 +93,17 @@ if not owid.empty:
     frames.append(owid)
 
 if frames:
-    new_data = pd.concat(frames, ignore_index=True)
-    save(new_data)
+    df_new = pd.concat(frames, ignore_index=True)
+    save(df_new)
 
-# -----------------------------
-# LOAD FROM DATABASE
-# -----------------------------
+# =========================
+# LOAD DATA
+# =========================
 df = load()
 
-# -----------------------------
+# =========================
 # SAFE FALLBACK
-# -----------------------------
+# =========================
 if df.empty:
     st.warning("⚠️ No historical data yet — system running baseline mode")
     df = pd.DataFrame({
@@ -112,27 +112,27 @@ if df.empty:
         "source": ["SYSTEM"]
     })
 
-# -----------------------------
+# =========================
 # CLEAN
-# -----------------------------
+# =========================
 df["signal"] = pd.to_numeric(df["signal"], errors="coerce")
 df = df.dropna()
 
-# -----------------------------
+# =========================
 # AGGREGATION
-# -----------------------------
+# =========================
 country_df = df.groupby("country")["signal"].sum().reset_index()
 
-# -----------------------------
+# =========================
 # RISK SCORE (WHO STYLE)
-# -----------------------------
+# =========================
 country_df["risk_score"] = (
     country_df["signal"] / country_df["signal"].max()
 ) * 100
 
-# -----------------------------
+# =========================
 # ML ENGINE
-# -----------------------------
+# =========================
 if len(country_df) >= 5:
     model = IsolationForest(contamination=0.2, random_state=42)
     country_df["anomaly"] = model.fit_predict(country_df[["risk_score"]])
@@ -143,9 +143,9 @@ if len(country_df) >= 5:
 else:
     country_df["status"] = "🟡 LOW DATA"
 
-# -----------------------------
-# DASHBOARD
-# -----------------------------
+# =========================
+# DASHBOARD METRICS
+# =========================
 st.subheader("📊 Global Intelligence Overview")
 
 col1, col2, col3 = st.columns(3)
@@ -154,12 +154,15 @@ col1.metric("Countries", len(country_df))
 col2.metric("High Risk", (country_df["status"] == "🚨 HIGH RISK").sum())
 col3.metric("Avg Risk Score", round(country_df["risk_score"].mean(), 2))
 
+# =========================
+# DATA TABLE
+# =========================
 st.subheader("📊 Intelligence Feed")
 st.dataframe(country_df, use_container_width=True)
 
-# -----------------------------
-# TREND
-# -----------------------------
+# =========================
+# TREND ANALYSIS
+# =========================
 st.subheader("📈 Global Trend")
 
 if country_df["risk_score"].mean() > 50:
@@ -167,25 +170,23 @@ if country_df["risk_score"].mean() > 50:
 else:
     st.success("🟢 Stable global conditions")
 
-# -----------------------------
+# =========================
 # ARCHITECTURE
-# -----------------------------
+# =========================
 st.subheader("🧠 System Architecture")
 
 st.code("""
 [ Live APIs: GDELT + OWID ]
         ↓
-[ Auto Ingestion on App Run ]
+[ Streamlit Ingestion Layer ]
         ↓
 [ SQLite Persistent Storage ]
         ↓
-[ Country Aggregation Layer ]
+[ Aggregation Engine ]
         ↓
-[ ML Risk Engine (Isolation Forest) ]
+[ ML Risk Detection (Isolation Forest) ]
         ↓
 [ Streamlit Dashboard ]
 """)
 
-st.caption("Production WHO-style intelligence pipeline (single-file deployment)")
-
-        
+st.caption("Enterprise WHO-style global intelligence system (single-file production)")
