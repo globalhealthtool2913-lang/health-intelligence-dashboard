@@ -1,13 +1,14 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import IsolationForest
 import pydeck as pdk
+from sklearn.ensemble import IsolationForest
+from sklearn.linear_model import LinearRegression
 
-st.set_page_config(page_title="Global Health ML Dashboard", layout="wide")
+st.set_page_config(page_title="Global Health Intelligence System", layout="wide")
 
-st.title("🌍 Global Health Intelligence System (ML Version)")
-st.caption("AI-powered outbreak detection + anomaly monitoring")
+st.title("🌍 Global Health Intelligence System (ML + Prediction)")
+st.caption("AI-powered surveillance dashboard — full free intelligence simulation")
 
 # -----------------------------
 # SIMULATED GLOBAL DATA
@@ -18,43 +19,34 @@ data = pd.DataFrame({
     "country": ["Ethiopia", "Kenya", "Uganda", "Tanzania", "Somalia"],
     "lat": [9.145, -1.286, 1.373, -6.369, 5.152],
     "lon": [40.489, 36.821, 32.290, 34.888, 46.199],
-    "cases": np.random.randint(5, 100, 5)
+    "cases": np.random.randint(10, 100, 5)
 })
 
 # -----------------------------
-# ML MODEL (ANOMALY DETECTION)
+# ML ANOMALY DETECTION
 # -----------------------------
-model = IsolationForest(contamination=0.3, random_state=42)
+iso = IsolationForest(contamination=0.3, random_state=42)
+data["anomaly"] = iso.fit_predict(data[["cases"]])
 
-data["anomaly_score"] = model.fit_predict(data[["cases"]])
-
-# Convert ML output
-def risk_label(x):
-    if x == -1:
-        return "🚨 ANOMALY (HIGH RISK)"
-    else:
-        return "🟢 NORMAL"
-
-data["status"] = data["anomaly_score"].apply(risk_label)
+data["status"] = data["anomaly"].apply(
+    lambda x: "🚨 HIGH RISK" if x == -1 else "🟢 NORMAL"
+)
 
 # -----------------------------
 # METRICS
 # -----------------------------
-st.subheader("📊 ML Risk Summary")
-
-anomalies = (data["anomaly_score"] == -1).sum()
-normal = (data["anomaly_score"] == 1).sum()
+st.subheader("📊 Global ML Summary")
 
 col1, col2 = st.columns(2)
-col1.metric("🚨 Anomalies Detected", anomalies)
-col2.metric("🟢 Normal Regions", normal)
+col1.metric("🚨 Anomalies", (data["anomaly"] == -1).sum())
+col2.metric("🟢 Normal", (data["anomaly"] == 1).sum())
 
 # -----------------------------
-# MAP VISUALIZATION
+# MAP
 # -----------------------------
-st.subheader("🗺️ ML Risk Map")
+st.subheader("🗺️ Global Risk Map")
 
-data["color"] = data["anomaly_score"].apply(
+data["color"] = data["anomaly"].apply(
     lambda x: [255, 0, 0] if x == -1 else [0, 200, 0]
 )
 
@@ -72,29 +64,40 @@ view_state = pdk.ViewState(latitude=10, longitude=20, zoom=1.5)
 st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state))
 
 # -----------------------------
-# TABLE
+# DATA TABLE
 # -----------------------------
-st.subheader("📊 Intelligence Feed (ML Output)")
+st.subheader("📊 Intelligence Feed")
 st.dataframe(data)
 
 # -----------------------------
-# SIMPLE FORECAST LOGIC
+# PREDICTION ENGINE (ML)
 # -----------------------------
-st.subheader("📈 Trend Forecast (Simple ML Signal)")
+st.subheader("🔮 Prediction Engine")
 
-trend_signal = "INCREASING 📈" if data["cases"].mean() > 50 else "STABLE ➡️"
+time = np.array([1, 2, 3, 4, 5, 6]).reshape(-1, 1)
+cases_history = np.array([20, 30, 35, 50, 65, 80])
 
-st.info(f"Forecast: {trend_signal}")
+model = LinearRegression()
+model.fit(time, cases_history)
 
-# -----------------------------
-# ALERT ENGINE
-# -----------------------------
-st.subheader("🚨 Alert Engine")
+next_case = model.predict([[7]])[0]
 
-if anomalies > 0:
-    st.error("High-risk anomaly detected in global dataset!")
+st.write(f"📊 Predicted Cases Next Period: **{int(next_case)}**")
+
+if next_case > 70:
+    st.error("🚨 High outbreak risk predicted")
+elif next_case > 50:
+    st.warning("⚠️ Moderate risk predicted")
 else:
-    st.success("System stable — no anomalies detected")
+    st.success("🟢 Low risk predicted")
+
+# -----------------------------
+# TREND
+# -----------------------------
+st.subheader("📈 Trend Intelligence")
+
+trend = "INCREASING 📈" if cases_history[-1] > cases_history[0] else "STABLE ➡️"
+st.info(f"Global Trend: {trend}")
 
 # -----------------------------
 # ARCHITECTURE
@@ -106,11 +109,12 @@ st.code("""
       ↓
 [ Feature Engineering ]
       ↓
-[ ML Model: Isolation Forest ]
+[ ML Anomaly Detection ]
       ↓
-[ Anomaly Detection Engine ]
+[ Prediction Model ]
       ↓
 [ Streamlit Dashboard ]
 """)
 
-st.caption("ML-powered Global Health Intelligence System (Free Version)")
+st.caption("Global Health Intelligence System — ML + Prediction Version")
+
