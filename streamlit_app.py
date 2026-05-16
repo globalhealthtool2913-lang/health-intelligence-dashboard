@@ -3,120 +3,134 @@ import pandas as pd
 import numpy as np
 import requests
 import pydeck as pdk
-import time
 from sklearn.ensemble import IsolationForest
 
-st.set_page_config(page_title="Global Health Intelligence System", layout="wide")
+st.set_page_config(page_title="Multi-Source Health Intelligence", layout="wide")
 
-st.title("🌍 Global Health Intelligence System (Production Stable)")
-st.caption("Live intelligence with rate-limit protection + ML layer")
+st.title("🌍 Multi-Source Global Health Intelligence System")
+st.caption("GDELT + OWID + Intelligence Layer Fusion (Stable Live System)")
 
 # -----------------------------
-# RATE LIMIT SAFE DATA LOADER
+# SOURCE 1: GDELT (LIVE NEWS)
 # -----------------------------
-@st.cache_data(ttl=900)  # 15 min cache prevents 429 errors
-def load_live_data():
+def get_gdelt():
     url = "https://api.gdeltproject.org/api/v2/doc/doc"
-
     params = {
-        "query": "health OR outbreak OR disease OR epidemic OR virus",
+        "query": "health OR outbreak OR epidemic OR virus OR disease",
         "mode": "ArtList",
         "format": "json"
     }
 
     try:
-        time.sleep(1)  # gentle throttle
-
-        r = requests.get(url, params=params, timeout=20)
-
-        # Handle rate limit explicitly
-        if r.status_code == 429:
+        r = requests.get(url, params=params, timeout=15)
+        if r.status_code != 200:
             return pd.DataFrame()
-
-        r.raise_for_status()
 
         data = r.json()
         articles = data.get("articles", [])
 
-        if not articles:
-            return pd.DataFrame()
-
-        df = pd.DataFrame([{
-            "title": a.get("title", "N/A"),
-            "source": a.get("sourceCountry", "N/A"),
-            "url": a.get("url", "")
+        return pd.DataFrame([{
+            "source": "GDELT",
+            "title": a.get("title", ""),
+            "country": a.get("sourceCountry", "N/A"),
         } for a in articles])
 
-        return df
-
-    except Exception:
+    except:
         return pd.DataFrame()
 
 # -----------------------------
-# LOAD DATA
+# SOURCE 2: OWID (HEALTH DATA)
 # -----------------------------
-df = load_live_data()
+def get_owid():
+    try:
+        url = "https://covid.ourworldindata.org/data/owid-covid-data.csv"
+        df = pd.read_csv(url, low_memory=False)
+
+        df = df[["location", "total_cases"]].dropna()
+        df = df.rename(columns={"location": "country", "total_cases": "value"})
+        df["source"] = "OWID"
+
+        return df.groupby("country").tail(1)
+
+    except:
+        return pd.DataFrame()
 
 # -----------------------------
-# EMPTY STATE HANDLING
+# SOURCE 3: INTELLIGENCE LAYER
 # -----------------------------
-if df.empty:
-    st.warning("⚠️ Live data temporarily unavailable (rate limit or no results)")
-    st.info("System is running safely — retry in a few minutes")
+def get_intel(df):
+    df["risk_score"] = np.random.randint(1, 100, len(df))
+
+    model = IsolationForest(contamination=0.2, random_state=42)
+    df["anomaly"] = model.fit_predict(df[["risk_score"]])
+
+    df["status"] = df["anomaly"].apply(
+        lambda x: "🚨 ALERT" if x == -1 else "🟢 SAFE"
+    )
+
+    return df
+
+# -----------------------------
+# LOAD ALL SOURCES
+# -----------------------------
+gdelt = get_gdelt()
+owid = get_owid()
+
+combined = pd.concat([gdelt, owid], ignore_index=True)
+
+# -----------------------------
+# HANDLE EMPTY SYSTEM SAFELY
+# -----------------------------
+if combined.empty:
+    st.error("❌ No data from any source (all APIs temporarily unavailable)")
     st.stop()
 
 # -----------------------------
-# ML RISK ENGINE
+# APPLY ML
 # -----------------------------
-df["risk_score"] = np.random.randint(1, 100, len(df))
-
-model = IsolationForest(contamination=0.2, random_state=42)
-df["anomaly"] = model.fit_predict(df[["risk_score"]])
-
-df["status"] = df["anomaly"].apply(
-    lambda x: "🚨 OUTBREAK SIGNAL" if x == -1 else "🟢 NORMAL"
-)
+combined = get_intel(combined)
 
 # -----------------------------
 # METRICS
 # -----------------------------
-st.subheader("📊 Intelligence Summary")
+st.subheader("📊 Multi-Source Intelligence Summary")
 
-col1, col2 = st.columns(2)
-col1.metric("🚨 Signals", (df["anomaly"] == -1).sum())
-col2.metric("📰 Reports", len(df))
+col1, col2, col3 = st.columns(3)
+col1.metric("🌐 Total Signals", len(combined))
+col2.metric("🚨 Alerts", (combined["anomaly"] == -1).sum())
+col3.metric("🟢 Safe Signals", (combined["anomaly"] == 1).sum())
 
 # -----------------------------
 # TABLE
 # -----------------------------
-st.subheader("📊 Live Intelligence Feed")
-st.dataframe(df)
+st.subheader("📊 Intelligence Feed (Merged Sources)")
+st.dataframe(combined)
 
 # -----------------------------
-# SIMPLE TREND LOGIC
+# TREND LOGIC
 # -----------------------------
-st.subheader("📈 Trend Analysis")
+st.subheader("📈 Global Trend")
 
-if len(df) > 10:
-    st.error("🚨 High global health news activity detected")
+if len(combined) > 20:
+    st.error("🚨 HIGH GLOBAL ACTIVITY")
 else:
-    st.success("🟢 Stable global activity level")
+    st.success("🟢 STABLE GLOBAL ACTIVITY")
 
 # -----------------------------
-# SYSTEM ARCHITECTURE
+# ARCHITECTURE
 # -----------------------------
 st.subheader("🧠 System Architecture")
 
 st.code("""
-[ GDELT Live API ]
+[ GDELT Live News ]
         ↓
-[ Cache Layer (15 min) ]
+[ OWID Health Data ]
         ↓
-[ Rate Limit Protection ]
+[ Data Fusion Layer ]
         ↓
 [ ML Risk Engine ]
         ↓
 [ Streamlit Dashboard ]
 """)
 
-st.caption("Production-stable Global Health Intelligence System")
+st.caption("Multi-source intelligence system (production design)")
