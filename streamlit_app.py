@@ -2,25 +2,24 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
-import sqlite3
 from sklearn.ensemble import IsolationForest
+import sqlite3
 
-st.set_page_config(page_title="WHO Enterprise Intelligence System", layout="wide")
+st.set_page_config(page_title="WHO Production Intelligence Pipeline", layout="wide")
 
-st.title("🌍 WHO-Level Global Health Intelligence System (Enterprise)")
-st.caption("Single-file production system with database + ML + multi-source fusion")
+st.title("🌍 WHO-Level Global Health Intelligence System")
+st.caption("Production pipeline: ingestion + storage + ML + dashboard (single file)")
 
 # -----------------------------
-# DATABASE (AUTO CREATE)
+# DATABASE (AUTO)
 # -----------------------------
-DB = "who_system.db"
+DB = "global_intel.db"
 
 def init_db():
     conn = sqlite3.connect(DB)
     c = conn.cursor()
     c.execute("""
         CREATE TABLE IF NOT EXISTS signals (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
             country TEXT,
             signal REAL,
             source TEXT
@@ -43,9 +42,9 @@ def load():
 init_db()
 
 # -----------------------------
-# DATA SOURCE 1: GDELT
+# LIVE DATA SOURCES
 # -----------------------------
-def get_gdelt():
+def fetch_gdelt():
     try:
         url = "https://api.gdeltproject.org/api/v2/doc/doc"
         params = {
@@ -67,10 +66,7 @@ def get_gdelt():
     except:
         return pd.DataFrame()
 
-# -----------------------------
-# DATA SOURCE 2: OWID
-# -----------------------------
-def get_owid():
+def fetch_owid():
     try:
         url = "https://covid.ourworldindata.org/data/owid-covid-data.csv"
         df = pd.read_csv(url, low_memory=False)
@@ -85,33 +81,31 @@ def get_owid():
         return pd.DataFrame()
 
 # -----------------------------
-# INGEST DATA (LIVE + STORE)
+# INGEST (AUTO EACH RUN)
 # -----------------------------
-gdelt = get_gdelt()
-owid = get_owid()
+gdelt = fetch_gdelt()
+owid = fetch_owid()
 
 frames = []
-
 if not gdelt.empty:
     frames.append(gdelt)
 if not owid.empty:
     frames.append(owid)
 
-if len(frames) > 0:
+if frames:
     new_data = pd.concat(frames, ignore_index=True)
     save(new_data)
 
 # -----------------------------
-# LOAD FROM DATABASE (PRIMARY)
+# LOAD FROM DATABASE
 # -----------------------------
 df = load()
 
 # -----------------------------
-# SAFE FALLBACK (NO CRASH)
+# SAFE FALLBACK
 # -----------------------------
 if df.empty:
-    st.warning("⚠️ No stored intelligence data yet — showing system baseline mode")
-
+    st.warning("⚠️ No historical data yet — system running baseline mode")
     df = pd.DataFrame({
         "country": ["Global"],
         "signal": [1],
@@ -130,7 +124,7 @@ df = df.dropna()
 country_df = df.groupby("country")["signal"].sum().reset_index()
 
 # -----------------------------
-# RISK INDEX (WHO STYLE)
+# RISK SCORE (WHO STYLE)
 # -----------------------------
 country_df["risk_score"] = (
     country_df["signal"] / country_df["signal"].max()
@@ -150,7 +144,7 @@ else:
     country_df["status"] = "🟡 LOW DATA"
 
 # -----------------------------
-# METRICS
+# DASHBOARD
 # -----------------------------
 st.subheader("📊 Global Intelligence Overview")
 
@@ -160,9 +154,6 @@ col1.metric("Countries", len(country_df))
 col2.metric("High Risk", (country_df["status"] == "🚨 HIGH RISK").sum())
 col3.metric("Avg Risk Score", round(country_df["risk_score"].mean(), 2))
 
-# -----------------------------
-# TABLE
-# -----------------------------
 st.subheader("📊 Intelligence Feed")
 st.dataframe(country_df, use_container_width=True)
 
@@ -172,9 +163,9 @@ st.dataframe(country_df, use_container_width=True)
 st.subheader("📈 Global Trend")
 
 if country_df["risk_score"].mean() > 50:
-    st.error("🚨 Elevated global health risk detected")
+    st.error("🚨 Elevated global health activity detected")
 else:
-    st.success("🟢 Global situation stable")
+    st.success("🟢 Stable global conditions")
 
 # -----------------------------
 # ARCHITECTURE
@@ -184,15 +175,17 @@ st.subheader("🧠 System Architecture")
 st.code("""
 [ Live APIs: GDELT + OWID ]
         ↓
-[ Auto Ingestion Layer ]
+[ Auto Ingestion on App Run ]
         ↓
 [ SQLite Persistent Storage ]
         ↓
-[ Aggregation + Feature Engineering ]
+[ Country Aggregation Layer ]
         ↓
 [ ML Risk Engine (Isolation Forest) ]
         ↓
 [ Streamlit Dashboard ]
 """)
 
-st.caption("Enterprise WHO-style global intelligence system (single-file production)")
+st.caption("Production WHO-style intelligence pipeline (single-file deployment)")
+
+        
