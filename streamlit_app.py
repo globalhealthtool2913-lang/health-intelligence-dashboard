@@ -1,4 +1,5 @@
-import streamlit as st
+
+   import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
@@ -6,21 +7,21 @@ import sqlite3
 from sklearn.ensemble import IsolationForest
 from datetime import datetime
 
-st.set_page_config(page_title="Global Surveillance System", layout="wide")
+st.set_page_config(page_title="WHO Digital Twin System", layout="wide")
 
-st.title("🌍 Continuous Global Health Surveillance System")
-st.caption("WHO-style production intelligence (single-file continuous system)")
+st.title("🌍 WHO DIGITAL TWIN SYSTEM")
+st.caption("Simulated global health intelligence model (real-world fusion + ML + forecasting)")
 
 # =========================
-# DATABASE (persistent memory)
+# DATABASE (DIGITAL TWIN MEMORY)
 # =========================
-DB = "surveillance.db"
+DB = "digital_twin.db"
 
 def init_db():
     conn = sqlite3.connect(DB)
     c = conn.cursor()
     c.execute("""
-        CREATE TABLE IF NOT EXISTS signals (
+        CREATE TABLE IF NOT EXISTS world_state (
             country TEXT,
             signal REAL,
             source TEXT,
@@ -32,25 +33,21 @@ def init_db():
 
 def save(df):
     conn = sqlite3.connect(DB)
-    df.to_sql("signals", conn, if_exists="append", index=False)
+    df.to_sql("world_state", conn, if_exists="append", index=False)
     conn.close()
 
 def load():
     conn = sqlite3.connect(DB)
-    try:
-        df = pd.read_sql("SELECT * FROM signals", conn)
-    except:
-        df = pd.DataFrame(columns=["country", "signal", "source", "timestamp"])
+    df = pd.read_sql("SELECT * FROM world_state", conn)
     conn.close()
     return df
 
 init_db()
 
 # =========================
-# LIVE DATA SOURCES (SAFE)
+# DATA SOURCES
 # =========================
-@st.cache_data(ttl=300)
-def fetch_gdelt():
+def gdelt():
     try:
         url = "https://api.gdeltproject.org/api/v2/doc/doc"
         params = {
@@ -58,8 +55,7 @@ def fetch_gdelt():
             "mode": "ArtList",
             "format": "json"
         }
-
-        r = requests.get(url, timeout=8)
+        r = requests.get(url, timeout=10)
         data = r.json()
         articles = data.get("articles", [])
 
@@ -73,8 +69,7 @@ def fetch_gdelt():
     except:
         return pd.DataFrame()
 
-@st.cache_data(ttl=300)
-def fetch_owid():
+def owid():
     try:
         url = "https://covid.ourworldindata.org/data/owid-covid-data.csv"
         df = pd.read_csv(url, low_memory=False)
@@ -90,111 +85,117 @@ def fetch_owid():
         return pd.DataFrame()
 
 # =========================
-# CONTINUOUS INGESTION (ON EACH RUN + CACHE)
+# SYNTHETIC GLOBAL SIGNALS (DIGITAL TWIN CORE)
 # =========================
-gdelt = fetch_gdelt()
-owid = fetch_owid()
+def synthetic_world_state():
+    countries = ["Ethiopia", "Kenya", "USA", "India", "Brazil"]
 
-frames = []
-if not gdelt.empty:
-    frames.append(gdelt)
-if not owid.empty:
-    frames.append(owid)
-
-if frames:
-    new_data = pd.concat(frames, ignore_index=True)
-    save(new_data)
-
-# =========================
-# LOAD DATA
-# =========================
-df = load()
-
-# =========================
-# SAFE MODE
-# =========================
-if df.empty:
-    st.warning("⚠️ System initializing — waiting for live ingestion data")
-
-    df = pd.DataFrame({
-        "country": ["Global"],
-        "signal": [1],
-        "source": ["SYSTEM"],
-        "timestamp": [str(datetime.utcnow())]
+    return pd.DataFrame({
+        "country": countries,
+        "signal": np.random.randint(10, 500, len(countries)),
+        "source": "SYNTHETIC_TWIN",
+        "timestamp": str(datetime.utcnow())
     })
 
 # =========================
-# CLEANING
+# FUSION LAYER
+# =========================
+data = [gdelt(), owid(), synthetic_world_state()]
+df_new = pd.concat([d for d in data if not d.empty], ignore_index=True)
+
+save(df_new)
+
+# =========================
+# LOAD WORLD STATE
+# =========================
+df = load()
+
+if df.empty:
+    st.warning("🌍 Digital twin initializing world state...")
+    df = synthetic_world_state()
+
+# =========================
+# CLEAN
 # =========================
 df["signal"] = pd.to_numeric(df["signal"], errors="coerce")
 df = df.dropna()
 
 # =========================
-# AGGREGATION
+# WORLD STATE ENGINE
 # =========================
-country_df = df.groupby("country")["signal"].sum().reset_index()
+world = df.groupby("country")["signal"].sum().reset_index()
 
-# =========================
-# RISK ENGINE
-# =========================
-country_df["risk_score"] = (
-    country_df["signal"] / country_df["signal"].max()
+world["risk_score"] = (
+    world["signal"] / world["signal"].max()
 ) * 100
 
 # =========================
-# ML ENGINE
+# ML ENGINE (TWIN BRAIN)
 # =========================
-if len(country_df) >= 5:
-    model = IsolationForest(contamination=0.2, random_state=42)
-    country_df["anomaly"] = model.fit_predict(country_df[["risk_score"]])
-    country_df["status"] = country_df["anomaly"].apply(
-        lambda x: "🚨 HIGH RISK" if x == -1 else "🟢 NORMAL"
-    )
-else:
-    country_df["status"] = "🟡 LOW DATA"
+model = IsolationForest(contamination=0.2, random_state=42)
+world["anomaly"] = model.fit_predict(world[["risk_score"]])
+
+world["status"] = world["anomaly"].apply(
+    lambda x: "🚨 OUTBREAK ZONE" if x == -1 else "🟢 STABLE ZONE"
+)
+
+# =========================
+# WHO ALERT SYSTEM
+# =========================
+def who_level(score):
+    if score > 80:
+        return "🔴 LEVEL 5 - CRITICAL"
+    elif score > 60:
+        return "🟠 LEVEL 4 - HIGH"
+    elif score > 40:
+        return "🟡 LEVEL 3 - MODERATE"
+    elif score > 20:
+        return "🟢 LEVEL 2 - LOW"
+    else:
+        return "🟢 LEVEL 1 - MINIMAL"
+
+world["WHO_ALERT"] = world["risk_score"].apply(who_level)
 
 # =========================
 # DASHBOARD
 # =========================
-st.subheader("📊 Global Surveillance Overview")
+st.subheader("🌍 Digital World State")
 
 col1, col2, col3 = st.columns(3)
 
-col1.metric("Countries", len(country_df))
-col2.metric("High Risk", (country_df["status"] == "🚨 HIGH RISK").sum())
-col3.metric("Avg Risk Score", round(country_df["risk_score"].mean(), 2))
+col1.metric("Countries", len(world))
+col2.metric("Outbreak Zones", (world["status"] == "🚨 OUTBREAK ZONE").sum())
+col3.metric("Avg Risk", round(world["risk_score"].mean(), 2))
 
-st.subheader("📊 Intelligence Feed")
-st.dataframe(country_df, use_container_width=True)
+st.dataframe(world, use_container_width=True)
 
 # =========================
-# TREND
+# GLOBAL TREND
 # =========================
-st.subheader("📈 Global Trend")
+st.subheader("📈 Global Trend Engine")
 
-if country_df["risk_score"].mean() > 50:
-    st.error("🚨 Elevated global health activity detected")
+if world["risk_score"].mean() > 50:
+    st.error("🚨 DIGITAL TWIN ALERT: Elevated global health instability detected")
 else:
-    st.success("🟢 Stable global conditions")
+    st.success("🟢 Global system stable (digital twin simulation)")
 
 # =========================
 # ARCHITECTURE
 # =========================
-st.subheader("🧠 System Architecture")
+st.subheader("🧠 Digital Twin Architecture")
 
 st.code("""
-[ Live APIs (GDELT + OWID) ]
+[ Real + Synthetic Global Data ]
         ↓
-[ Streamlit Cached Ingestion Layer ]
+[ Fusion Layer (World State Builder) ]
         ↓
-[ SQLite Persistent Storage ]
+[ Digital Twin Memory (SQLite) ]
         ↓
-[ Aggregation Engine ]
+[ ML Brain (Risk + Anomaly Detection) ]
         ↓
-[ ML Risk Detection ]
+[ WHO Alert System (Level 1–5) ]
         ↓
-[ Continuous Streamlit Dashboard ]
+[ Streamlit Visualization Layer ]
 """)
 
-st.caption("Fully continuous WHO-style surveillance system (production-ready single-file version)")
-        
+st.caption("WHO Digital Twin System — simulated global health intelligence model") 
