@@ -1,151 +1,55 @@
+
 import streamlit as st
 import pandas as pd
 import numpy as np
-import requests
 from sklearn.ensemble import IsolationForest
+from database import load_data
 
-st.set_page_config(page_title="Global Health Intelligence System", layout="wide")
+st.set_page_config(page_title="Production Health Intelligence", layout="wide")
 
-st.title("🌍 Global Health Intelligence System (Always Live Mode)")
-st.caption("Never-blank dashboard with resilient multi-source intelligence")
-
-# -----------------------------
-# SOURCE 1: GDELT
-# -----------------------------
-def get_gdelt():
-    try:
-        url = "https://api.gdeltproject.org/api/v2/doc/doc"
-        params = {
-            "query": "health OR outbreak OR epidemic OR virus OR disease",
-            "mode": "ArtList",
-            "format": "json"
-        }
-
-        r = requests.get(url, params=params, timeout=10)
-        data = r.json()
-        articles = data.get("articles", [])
-
-        return pd.DataFrame([{
-            "source": "GDELT",
-            "country": a.get("sourceCountry", "Unknown"),
-            "signal": 1
-        } for a in articles])
-
-    except:
-        return pd.DataFrame()
+st.title("🌍 Production Global Health Intelligence System")
 
 # -----------------------------
-# SOURCE 2: OWID
+# LOAD FROM DATABASE ONLY
 # -----------------------------
-def get_owid():
-    try:
-        url = "https://covid.ourworldindata.org/data/owid-covid-data.csv"
-        df = pd.read_csv(url, low_memory=False)
+df = load_data()
 
-        df = df[["location", "total_cases"]].dropna()
-        df = df.rename(columns={
-            "location": "country",
-            "total_cases": "signal"
-        })
-
-        df["source"] = "OWID"
-
-        return df.groupby("country").tail(1)
-
-    except:
-        return pd.DataFrame()
-
-# -----------------------------
-# LOAD DATA (NO FAIL STOP)
-# -----------------------------
-gdelt = get_gdelt()
-owid = get_owid()
-
-frames = []
-
-if not gdelt.empty:
-    frames.append(gdelt)
-
-if not owid.empty:
-    frames.append(owid)
-
-# -----------------------------
-# ALWAYS SHOW DASHBOARD (IMPORTANT FIX)
-# -----------------------------
-if len(frames) == 0:
-    st.warning("⚠️ Live data temporarily unavailable")
-    
-    combined = pd.DataFrame({
-        "source": ["SYSTEM"],
-        "country": ["Global"],
-        "signal": [0],
-        "status": ["🟡 NO LIVE DATA"]
-    })
-else:
-    combined = pd.concat(frames, ignore_index=True)
+if df.empty:
+    st.warning("⚠️ No stored data yet. Run ingestion script first.")
+    st.stop()
 
 # -----------------------------
 # CLEAN DATA
 # -----------------------------
-combined["signal"] = pd.to_numeric(combined["signal"], errors="coerce")
-combined = combined.dropna(subset=["signal"])
+df["signal"] = pd.to_numeric(df["signal"], errors="coerce")
+df = df.dropna()
 
 # -----------------------------
-# ML ENGINE (SAFE)
+# ML MODEL
 # -----------------------------
-if len(combined) > 5:
-    model = IsolationForest(contamination=0.2, random_state=42)
-    combined["anomaly"] = model.fit_predict(combined[["signal"]])
+model = IsolationForest(contamination=0.2, random_state=42)
+df["anomaly"] = model.fit_predict(df[["signal"]])
 
-    combined["status"] = combined["anomaly"].apply(
-        lambda x: "🚨 ALERT" if x == -1 else "🟢 SAFE"
-    )
-else:
-    combined["status"] = "🟡 INSUFFICIENT DATA"
-    combined["anomaly"] = 0
+df["status"] = df["anomaly"].apply(
+    lambda x: "🚨 ALERT" if x == -1 else "🟢 SAFE"
+)
 
 # -----------------------------
-# METRICS
+# DASHBOARD
 # -----------------------------
 st.subheader("📊 Intelligence Overview")
 
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
+col1.metric("Signals", len(df))
+col2.metric("Alerts", (df["anomaly"] == -1).sum())
 
-col1.metric("Signals", len(combined))
-col2.metric("Alerts", (combined["status"] == "🚨 ALERT").sum())
-col3.metric("Sources Active", len([gdelt, owid]))
-
-# -----------------------------
-# TABLE
-# -----------------------------
 st.subheader("📊 Intelligence Feed")
-st.dataframe(combined, use_container_width=True)
+st.dataframe(df, use_container_width=True)
 
-# -----------------------------
-# TREND
-# -----------------------------
-st.subheader("📈 Global Trend")
-
-if combined["signal"].mean() > combined["signal"].median():
+st.subheader("📈 Trend")
+if df["signal"].mean() > df["signal"].median():
     st.error("🚨 Increasing activity detected")
 else:
-    st.success("🟢 Stable global activity")
+    st.success("🟢 Stable activity")
 
-# -----------------------------
-# SYSTEM STATUS
-# -----------------------------
-st.subheader("🧠 System Architecture")
-
-st.code("""
-[ GDELT API ]
-      ↓
-[ OWID Dataset ]
-      ↓
-[ Data Fusion Layer ]
-      ↓
-[ ML Risk Engine ]
-      ↓
-[ Streamlit Dashboard ]
-""")
-
-st.caption("Always-live resilient global intelligence system")
+st.caption("Production-grade intelligence system (database-driven)")
