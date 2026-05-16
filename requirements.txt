@@ -1,6 +1,5 @@
 streamlit
 pandas
 numpy
-requests
-pydeck
 scikit-learn
+pydeck
