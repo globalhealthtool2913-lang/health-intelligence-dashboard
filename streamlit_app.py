@@ -9,7 +9,7 @@ from datetime import datetime
 st.set_page_config(page_title="Global Surveillance System", layout="wide")
 
 st.title("🌍 Continuous Global Health Surveillance System")
-st.caption("WHO-style intelligence system (self-updating, resilient, production-ready)")
+st.caption("WHO-style production intelligence (single-file continuous system)")
 
 # =========================
 # DATABASE (persistent memory)
@@ -49,6 +49,7 @@ init_db()
 # =========================
 # LIVE DATA SOURCES (SAFE)
 # =========================
+@st.cache_data(ttl=300)
 def fetch_gdelt():
     try:
         url = "https://api.gdeltproject.org/api/v2/doc/doc"
@@ -72,6 +73,7 @@ def fetch_gdelt():
     except:
         return pd.DataFrame()
 
+@st.cache_data(ttl=300)
 def fetch_owid():
     try:
         url = "https://covid.ourworldindata.org/data/owid-covid-data.csv"
@@ -88,7 +90,7 @@ def fetch_owid():
         return pd.DataFrame()
 
 # =========================
-# CONTINUOUS INGESTION (runs every refresh)
+# CONTINUOUS INGESTION (ON EACH RUN + CACHE)
 # =========================
 gdelt = fetch_gdelt()
 owid = fetch_owid()
@@ -104,15 +106,15 @@ if frames:
     save(new_data)
 
 # =========================
-# LOAD HISTORY
+# LOAD DATA
 # =========================
 df = load()
 
 # =========================
-# SAFE MODE (never crash)
+# SAFE MODE
 # =========================
 if df.empty:
-    st.warning("⚠️ No historical data yet — system initializing continuous mode")
+    st.warning("⚠️ System initializing — waiting for live ingestion data")
 
     df = pd.DataFrame({
         "country": ["Global"],
@@ -133,19 +135,18 @@ df = df.dropna()
 country_df = df.groupby("country")["signal"].sum().reset_index()
 
 # =========================
-# RISK SCORE ENGINE
+# RISK ENGINE
 # =========================
 country_df["risk_score"] = (
     country_df["signal"] / country_df["signal"].max()
 ) * 100
 
 # =========================
-# ML ANOMALY DETECTION
+# ML ENGINE
 # =========================
 if len(country_df) >= 5:
     model = IsolationForest(contamination=0.2, random_state=42)
     country_df["anomaly"] = model.fit_predict(country_df[["risk_score"]])
-
     country_df["status"] = country_df["anomaly"].apply(
         lambda x: "🚨 HIGH RISK" if x == -1 else "🟢 NORMAL"
     )
@@ -153,7 +154,7 @@ else:
     country_df["status"] = "🟡 LOW DATA"
 
 # =========================
-# METRICS
+# DASHBOARD
 # =========================
 st.subheader("📊 Global Surveillance Overview")
 
@@ -163,14 +164,11 @@ col1.metric("Countries", len(country_df))
 col2.metric("High Risk", (country_df["status"] == "🚨 HIGH RISK").sum())
 col3.metric("Avg Risk Score", round(country_df["risk_score"].mean(), 2))
 
-# =========================
-# TABLE
-# =========================
-st.subheader("📊 Intelligence Feed (Continuous Memory)")
+st.subheader("📊 Intelligence Feed")
 st.dataframe(country_df, use_container_width=True)
 
 # =========================
-# TREND ANALYSIS
+# TREND
 # =========================
 st.subheader("📈 Global Trend")
 
@@ -180,23 +178,23 @@ else:
     st.success("🟢 Stable global conditions")
 
 # =========================
-# SYSTEM ARCHITECTURE
+# ARCHITECTURE
 # =========================
 st.subheader("🧠 System Architecture")
 
 st.code("""
-[ Live Data Sources (GDELT + OWID) ]
+[ Live APIs (GDELT + OWID) ]
         ↓
-[ Continuous Streamlit Ingestion ]
+[ Streamlit Cached Ingestion Layer ]
         ↓
-[ SQLite Persistent Memory ]
+[ SQLite Persistent Storage ]
         ↓
 [ Aggregation Engine ]
         ↓
-[ ML Risk Detection (Isolation Forest) ]
+[ ML Risk Detection ]
         ↓
-[ Continuous Surveillance Dashboard ]
+[ Continuous Streamlit Dashboard ]
 """)
 
-st.caption("Continuous WHO-style global surveillance system (single-file production)")
+st.caption("Fully continuous WHO-style surveillance system (production-ready single-file version)")
         
