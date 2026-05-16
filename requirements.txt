@@ -1,4 +1,5 @@
-pydeck
+streamlit
 pandas
 numpy
-streamlit
+scikit-learn
+pydeck
