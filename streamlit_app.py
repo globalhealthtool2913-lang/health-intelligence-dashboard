@@ -1,85 +1,100 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from sklearn.ensemble import IsolationForest
 import pydeck as pdk
 
-st.set_page_config(page_title="Global Health Map", layout="wide")
+st.set_page_config(page_title="Global Health ML Dashboard", layout="wide")
 
-st.title("🌍 Global Health Intelligence Map System")
-st.caption("AI-powered surveillance dashboard with geospatial risk mapping")
+st.title("🌍 Global Health Intelligence System (ML Version)")
+st.caption("AI-powered outbreak detection + anomaly monitoring")
 
 # -----------------------------
 # SIMULATED GLOBAL DATA
 # -----------------------------
+np.random.seed(42)
+
 data = pd.DataFrame({
     "country": ["Ethiopia", "Kenya", "Uganda", "Tanzania", "Somalia"],
     "lat": [9.145, -1.286, 1.373, -6.369, 5.152],
     "lon": [40.489, 36.821, 32.290, 34.888, 46.199],
-    "high": np.random.randint(0, 3, 5),
-    "moderate": np.random.randint(0, 5, 5),
-    "low": np.random.randint(0, 6, 5)
+    "cases": np.random.randint(5, 100, 5)
 })
 
 # -----------------------------
-# RISK SCORE
+# ML MODEL (ANOMALY DETECTION)
 # -----------------------------
-data["score"] = (data["high"] * 4) + (data["moderate"] * 2) + data["low"]
+model = IsolationForest(contamination=0.3, random_state=42)
 
-def risk_color(score):
-    if score >= 10:
-        return [255, 0, 0]      # red
-    elif score >= 5:
-        return [255, 165, 0]    # orange
+data["anomaly_score"] = model.fit_predict(data[["cases"]])
+
+# Convert ML output
+def risk_label(x):
+    if x == -1:
+        return "🚨 ANOMALY (HIGH RISK)"
     else:
-        return [0, 200, 0]      # green
+        return "🟢 NORMAL"
 
-data["color"] = data["score"].apply(risk_color)
+data["status"] = data["anomaly_score"].apply(risk_label)
 
 # -----------------------------
 # METRICS
 # -----------------------------
-st.subheader("📊 Global Risk Summary")
+st.subheader("📊 ML Risk Summary")
 
-col1, col2, col3 = st.columns(3)
-col1.metric("🔴 High Risk", (data["score"] >= 10).sum())
-col2.metric("🟠 Moderate Risk", ((data["score"] >= 5) & (data["score"] < 10)).sum())
-col3.metric("🟢 Low Risk", (data["score"] < 5).sum())
+anomalies = (data["anomaly_score"] == -1).sum()
+normal = (data["anomaly_score"] == 1).sum()
+
+col1, col2 = st.columns(2)
+col1.metric("🚨 Anomalies Detected", anomalies)
+col2.metric("🟢 Normal Regions", normal)
 
 # -----------------------------
-# MAP LAYER
+# MAP VISUALIZATION
 # -----------------------------
-st.subheader("🗺️ Global Risk Map")
+st.subheader("🗺️ ML Risk Map")
+
+data["color"] = data["anomaly_score"].apply(
+    lambda x: [255, 0, 0] if x == -1 else [0, 200, 0]
+)
 
 layer = pdk.Layer(
     "ScatterplotLayer",
     data=data,
     get_position='[lon, lat]',
     get_color="color",
-    get_radius=500000,
+    get_radius=600000,
     pickable=True
 )
 
-view_state = pdk.ViewState(
-    latitude=10,
-    longitude=20,
-    zoom=1.5
-)
+view_state = pdk.ViewState(latitude=10, longitude=20, zoom=1.5)
 
 st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state))
 
 # -----------------------------
-# DATA TABLE
+# TABLE
 # -----------------------------
-st.subheader("📊 Intelligence Feed")
+st.subheader("📊 Intelligence Feed (ML Output)")
 st.dataframe(data)
 
 # -----------------------------
-# TREND SIMULATION
+# SIMPLE FORECAST LOGIC
 # -----------------------------
-st.subheader("📈 Trend Intelligence")
+st.subheader("📈 Trend Forecast (Simple ML Signal)")
 
-trend = np.random.choice(["Increasing 📈", "Stable ➡️", "Decreasing 📉"])
-st.info(f"Global Trend: {trend}")
+trend_signal = "INCREASING 📈" if data["cases"].mean() > 50 else "STABLE ➡️"
+
+st.info(f"Forecast: {trend_signal}")
+
+# -----------------------------
+# ALERT ENGINE
+# -----------------------------
+st.subheader("🚨 Alert Engine")
+
+if anomalies > 0:
+    st.error("High-risk anomaly detected in global dataset!")
+else:
+    st.success("System stable — no anomalies detected")
 
 # -----------------------------
 # ARCHITECTURE
@@ -87,13 +102,15 @@ st.info(f"Global Trend: {trend}")
 st.subheader("🧠 System Architecture")
 
 st.code("""
-[ Global Data Sources ]
-        ↓
-[ Risk Scoring Engine ]
-        ↓
-[ Geospatial Mapping Layer ]
-        ↓
+[ Data Sources ]
+      ↓
+[ Feature Engineering ]
+      ↓
+[ ML Model: Isolation Forest ]
+      ↓
+[ Anomaly Detection Engine ]
+      ↓
 [ Streamlit Dashboard ]
 """)
 
-st.caption("Global Health Intelligence Map System — Free Version")
+st.caption("ML-powered Global Health Intelligence System (Free Version)")
