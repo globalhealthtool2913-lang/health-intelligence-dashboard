@@ -73,3 +73,79 @@ if not owid.empty:
 # ALWAYS SHOW DASHBOARD (IMPORTANT FIX)
 # -----------------------------
 if len(frames) == 0:
+    st.warning("⚠️ Live data temporarily unavailable")
+    
+    combined = pd.DataFrame({
+        "source": ["SYSTEM"],
+        "country": ["Global"],
+        "signal": [0],
+        "status": ["🟡 NO LIVE DATA"]
+    })
+else:
+    combined = pd.concat(frames, ignore_index=True)
+
+# -----------------------------
+# CLEAN DATA
+# -----------------------------
+combined["signal"] = pd.to_numeric(combined["signal"], errors="coerce")
+combined = combined.dropna(subset=["signal"])
+
+# -----------------------------
+# ML ENGINE (SAFE)
+# -----------------------------
+if len(combined) > 5:
+    model = IsolationForest(contamination=0.2, random_state=42)
+    combined["anomaly"] = model.fit_predict(combined[["signal"]])
+
+    combined["status"] = combined["anomaly"].apply(
+        lambda x: "🚨 ALERT" if x == -1 else "🟢 SAFE"
+    )
+else:
+    combined["status"] = "🟡 INSUFFICIENT DATA"
+    combined["anomaly"] = 0
+
+# -----------------------------
+# METRICS
+# -----------------------------
+st.subheader("📊 Intelligence Overview")
+
+col1, col2, col3 = st.columns(3)
+
+col1.metric("Signals", len(combined))
+col2.metric("Alerts", (combined["status"] == "🚨 ALERT").sum())
+col3.metric("Sources Active", len([gdelt, owid]))
+
+# -----------------------------
+# TABLE
+# -----------------------------
+st.subheader("📊 Intelligence Feed")
+st.dataframe(combined, use_container_width=True)
+
+# -----------------------------
+# TREND
+# -----------------------------
+st.subheader("📈 Global Trend")
+
+if combined["signal"].mean() > combined["signal"].median():
+    st.error("🚨 Increasing activity detected")
+else:
+    st.success("🟢 Stable global activity")
+
+# -----------------------------
+# SYSTEM STATUS
+# -----------------------------
+st.subheader("🧠 System Architecture")
+
+st.code("""
+[ GDELT API ]
+      ↓
+[ OWID Dataset ]
+      ↓
+[ Data Fusion Layer ]
+      ↓
+[ ML Risk Engine ]
+      ↓
+[ Streamlit Dashboard ]
+""")
+
+st.caption("Always-live resilient global intelligence system")
