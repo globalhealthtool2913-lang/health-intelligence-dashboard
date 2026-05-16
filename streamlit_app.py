@@ -2,18 +2,50 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
-import pydeck as pdk
+import sqlite3
 from sklearn.ensemble import IsolationForest
 
-st.set_page_config(page_title="WHO-Level Global Intelligence System", layout="wide")
+st.set_page_config(page_title="WHO Enterprise Intelligence System", layout="wide")
 
-st.title("🌍 WHO-Level Global Health Intelligence System")
-st.caption("Global outbreak risk monitoring + ML-driven intelligence layer")
+st.title("🌍 WHO-Level Global Health Intelligence System (Enterprise)")
+st.caption("Single-file production system with database + ML + multi-source fusion")
 
 # -----------------------------
-# SOURCE 1: GDELT
+# DATABASE (AUTO CREATE)
 # -----------------------------
-def load_gdelt():
+DB = "who_system.db"
+
+def init_db():
+    conn = sqlite3.connect(DB)
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS signals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            country TEXT,
+            signal REAL,
+            source TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def save(df):
+    conn = sqlite3.connect(DB)
+    df.to_sql("signals", conn, if_exists="append", index=False)
+    conn.close()
+
+def load():
+    conn = sqlite3.connect(DB)
+    df = pd.read_sql("SELECT * FROM signals", conn)
+    conn.close()
+    return df
+
+init_db()
+
+# -----------------------------
+# DATA SOURCE 1: GDELT
+# -----------------------------
+def get_gdelt():
     try:
         url = "https://api.gdeltproject.org/api/v2/doc/doc"
         params = {
@@ -22,28 +54,30 @@ def load_gdelt():
             "format": "json"
         }
 
-        r = requests.get(url, params=params, timeout=10)
+        r = requests.get(url, timeout=10)
         data = r.json()
         articles = data.get("articles", [])
 
         return pd.DataFrame([{
             "country": a.get("sourceCountry", "Unknown"),
-            "signal": 1
+            "signal": 1,
+            "source": "GDELT"
         } for a in articles])
 
     except:
         return pd.DataFrame()
 
 # -----------------------------
-# SOURCE 2: OWID
+# DATA SOURCE 2: OWID
 # -----------------------------
-def load_owid():
+def get_owid():
     try:
         url = "https://covid.ourworldindata.org/data/owid-covid-data.csv"
         df = pd.read_csv(url, low_memory=False)
 
         df = df[["location", "total_cases"]].dropna()
         df = df.rename(columns={"location": "country", "total_cases": "signal"})
+        df["source"] = "OWID"
 
         return df.groupby("country").tail(1)
 
@@ -51,48 +85,61 @@ def load_owid():
         return pd.DataFrame()
 
 # -----------------------------
-# LOAD DATA
+# INGEST DATA (LIVE + STORE)
 # -----------------------------
-gdelt = load_gdelt()
-owid = load_owid()
+gdelt = get_gdelt()
+owid = get_owid()
 
 frames = []
+
 if not gdelt.empty:
     frames.append(gdelt)
 if not owid.empty:
     frames.append(owid)
 
-if len(frames) == 0:
-    st.warning("⚠️ No live data available — showing system baseline mode")
+if len(frames) > 0:
+    new_data = pd.concat(frames, ignore_index=True)
+    save(new_data)
+
+# -----------------------------
+# LOAD FROM DATABASE (PRIMARY)
+# -----------------------------
+df = load()
+
+# -----------------------------
+# SAFE FALLBACK (NO CRASH)
+# -----------------------------
+if df.empty:
+    st.warning("⚠️ No stored intelligence data yet — showing system baseline mode")
 
     df = pd.DataFrame({
         "country": ["Global"],
-        "signal": [1]
+        "signal": [1],
+        "source": ["SYSTEM"]
     })
-else:
-    df = pd.concat(frames, ignore_index=True)
 
 # -----------------------------
-# CLEAN DATA
+# CLEAN
 # -----------------------------
 df["signal"] = pd.to_numeric(df["signal"], errors="coerce")
 df = df.dropna()
 
 # -----------------------------
-# COUNTRY AGGREGATION
+# AGGREGATION
 # -----------------------------
 country_df = df.groupby("country")["signal"].sum().reset_index()
 
 # -----------------------------
-# RISK SCORING (WHO-STYLE INDEX)
+# RISK INDEX (WHO STYLE)
 # -----------------------------
-max_signal = country_df["signal"].max()
-country_df["risk_score"] = (country_df["signal"] / max_signal) * 100
+country_df["risk_score"] = (
+    country_df["signal"] / country_df["signal"].max()
+) * 100
 
 # -----------------------------
-# ML ANOMALY DETECTION
+# ML ENGINE
 # -----------------------------
-if len(country_df) > 5:
+if len(country_df) >= 5:
     model = IsolationForest(contamination=0.2, random_state=42)
     country_df["anomaly"] = model.fit_predict(country_df[["risk_score"]])
 
@@ -100,12 +147,12 @@ if len(country_df) > 5:
         lambda x: "🚨 HIGH RISK" if x == -1 else "🟢 NORMAL"
     )
 else:
-    country_df["status"] = "🟡 INSUFFICIENT DATA"
+    country_df["status"] = "🟡 LOW DATA"
 
 # -----------------------------
 # METRICS
 # -----------------------------
-st.subheader("📊 Global Risk Overview")
+st.subheader("📊 Global Intelligence Overview")
 
 col1, col2, col3 = st.columns(3)
 
@@ -116,13 +163,13 @@ col3.metric("Avg Risk Score", round(country_df["risk_score"].mean(), 2))
 # -----------------------------
 # TABLE
 # -----------------------------
-st.subheader("📊 Country Intelligence Feed")
+st.subheader("📊 Intelligence Feed")
 st.dataframe(country_df, use_container_width=True)
 
 # -----------------------------
-# SIMPLE GLOBAL TREND
+# TREND
 # -----------------------------
-st.subheader("📈 Global Trend Signal")
+st.subheader("📈 Global Trend")
 
 if country_df["risk_score"].mean() > 50:
     st.error("🚨 Elevated global health risk detected")
@@ -135,17 +182,17 @@ else:
 st.subheader("🧠 System Architecture")
 
 st.code("""
-[ GDELT News Data ]
+[ Live APIs: GDELT + OWID ]
         ↓
-[ OWID Health Dataset ]
+[ Auto Ingestion Layer ]
         ↓
-[ Country Aggregation Layer ]
+[ SQLite Persistent Storage ]
         ↓
-[ WHO-Style Risk Index (0–100) ]
+[ Aggregation + Feature Engineering ]
         ↓
-[ ML Anomaly Detection (Isolation Forest) ]
+[ ML Risk Engine (Isolation Forest) ]
         ↓
-[ Streamlit Intelligence Dashboard ]
+[ Streamlit Dashboard ]
 """)
 
-st.caption("WHO-level global intelligence simulation system")
+st.caption("Enterprise WHO-style global intelligence system (single-file production)")
