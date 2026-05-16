@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
-from sklearn.ensemble import IsolationForest
+from sklearn.ensemble import 
+IsolationForest
 
 st.set_page_config(page_title="Global Health Intelligence System", layout="wide")
 
