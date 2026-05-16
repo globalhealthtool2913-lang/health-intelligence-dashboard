@@ -1,17 +1,17 @@
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
-import pydeck as pdk
 from sklearn.ensemble import IsolationForest
 
 st.set_page_config(page_title="Multi-Source Health Intelligence", layout="wide")
 
 st.title("🌍 Multi-Source Global Health Intelligence System")
-st.caption("GDELT + OWID + Intelligence Layer Fusion (Stable Live System)")
+st.caption("Stable fusion of GDELT + OWID with ML engine")
 
 # -----------------------------
-# SOURCE 1: GDELT (LIVE NEWS)
+# SOURCE 1: GDELT
 # -----------------------------
 def get_gdelt():
     url = "https://api.gdeltproject.org/api/v2/doc/doc"
@@ -23,23 +23,21 @@ def get_gdelt():
 
     try:
         r = requests.get(url, params=params, timeout=15)
-        if r.status_code != 200:
-            return pd.DataFrame()
-
         data = r.json()
+
         articles = data.get("articles", [])
 
         return pd.DataFrame([{
             "source": "GDELT",
-            "title": a.get("title", ""),
-            "country": a.get("sourceCountry", "N/A"),
+            "country": a.get("sourceCountry", "Unknown"),
+            "signal": 1
         } for a in articles])
 
     except:
         return pd.DataFrame()
 
 # -----------------------------
-# SOURCE 2: OWID (HEALTH DATA)
+# SOURCE 2: OWID
 # -----------------------------
 def get_owid():
     try:
@@ -47,7 +45,11 @@ def get_owid():
         df = pd.read_csv(url, low_memory=False)
 
         df = df[["location", "total_cases"]].dropna()
-        df = df.rename(columns={"location": "country", "total_cases": "value"})
+        df = df.rename(columns={
+            "location": "country",
+            "total_cases": "signal"
+        })
+
         df["source"] = "OWID"
 
         return df.groupby("country").tail(1)
@@ -56,65 +58,57 @@ def get_owid():
         return pd.DataFrame()
 
 # -----------------------------
-# SOURCE 3: INTELLIGENCE LAYER
-# -----------------------------
-def get_intel(df):
-    df["risk_score"] = np.random.randint(1, 100, len(df))
-
-    model = IsolationForest(contamination=0.2, random_state=42)
-    df["anomaly"] = model.fit_predict(df[["risk_score"]])
-
-    df["status"] = df["anomaly"].apply(
-        lambda x: "🚨 ALERT" if x == -1 else "🟢 SAFE"
-    )
-
-    return df
-
-# -----------------------------
-# LOAD ALL SOURCES
+# LOAD DATA
 # -----------------------------
 gdelt = get_gdelt()
 owid = get_owid()
 
 combined = pd.concat([gdelt, owid], ignore_index=True)
 
-# -----------------------------
-# HANDLE EMPTY SYSTEM SAFELY
-# -----------------------------
 if combined.empty:
-    st.error("❌ No data from any source (all APIs temporarily unavailable)")
+    st.error("❌ No data available from any source")
     st.stop()
 
 # -----------------------------
-# APPLY ML
+# CLEAN DATA FOR ML
 # -----------------------------
-combined = get_intel(combined)
+combined["signal"] = pd.to_numeric(combined["signal"], errors="coerce")
+combined = combined.dropna(subset=["signal"])
+
+# -----------------------------
+# ML MODEL
+# -----------------------------
+model = IsolationForest(contamination=0.2, random_state=42)
+combined["anomaly"] = model.fit_predict(combined[["signal"]])
+
+combined["status"] = combined["anomaly"].apply(
+    lambda x: "🚨 ALERT" if x == -1 else "🟢 SAFE"
+)
 
 # -----------------------------
 # METRICS
 # -----------------------------
-st.subheader("📊 Multi-Source Intelligence Summary")
+st.subheader("📊 Intelligence Summary")
 
-col1, col2, col3 = st.columns(3)
-col1.metric("🌐 Total Signals", len(combined))
-col2.metric("🚨 Alerts", (combined["anomaly"] == -1).sum())
-col3.metric("🟢 Safe Signals", (combined["anomaly"] == 1).sum())
+col1, col2 = st.columns(2)
+col1.metric("Total Signals", len(combined))
+col2.metric("Alerts", (combined["anomaly"] == -1).sum())
 
 # -----------------------------
 # TABLE
 # -----------------------------
-st.subheader("📊 Intelligence Feed (Merged Sources)")
+st.subheader("📊 Intelligence Feed")
 st.dataframe(combined)
 
 # -----------------------------
-# TREND LOGIC
+# TREND
 # -----------------------------
 st.subheader("📈 Global Trend")
 
-if len(combined) > 20:
-    st.error("🚨 HIGH GLOBAL ACTIVITY")
+if combined["signal"].mean() > combined["signal"].median():
+    st.error("🚨 Increasing global activity detected")
 else:
-    st.success("🟢 STABLE GLOBAL ACTIVITY")
+    st.success("🟢 Stable global activity")
 
 # -----------------------------
 # ARCHITECTURE
@@ -122,15 +116,16 @@ else:
 st.subheader("🧠 System Architecture")
 
 st.code("""
-[ GDELT Live News ]
-        ↓
-[ OWID Health Data ]
-        ↓
-[ Data Fusion Layer ]
-        ↓
+[ GDELT API ]
+      ↓
+[ OWID Dataset ]
+      ↓
+[ Data Standardization Layer ]
+      ↓
 [ ML Risk Engine ]
-        ↓
+      ↓
 [ Streamlit Dashboard ]
 """)
 
-st.caption("Multi-source intelligence system (production design)")
+st.caption("Production-safe multi-source intelligence system")
+        
