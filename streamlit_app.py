@@ -117,4 +117,3 @@ st.code("""
 """)
 
 st.caption("Global Health Intelligence System — ML + Prediction Version")
-
