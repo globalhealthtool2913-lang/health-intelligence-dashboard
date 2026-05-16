@@ -2,35 +2,31 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
+import pydeck as pdk
 from sklearn.ensemble import IsolationForest
 
-st.set_page_config(page_title="Global Health Intelligence (Production)", layout="wide")
+st.set_page_config(page_title="WHO-Level Global Intelligence System", layout="wide")
 
-st.title("🌍 Production Global Health Intelligence System")
-st.caption("Self-contained multi-source ML intelligence dashboard")
+st.title("🌍 WHO-Level Global Health Intelligence System")
+st.caption("Global outbreak risk monitoring + ML-driven intelligence layer")
 
 # -----------------------------
-# SAFE DATA SOURCE: GDELT
+# SOURCE 1: GDELT
 # -----------------------------
 def load_gdelt():
     try:
         url = "https://api.gdeltproject.org/api/v2/doc/doc"
         params = {
-            "query": "health OR outbreak OR disease OR epidemic OR virus",
+            "query": "health OR outbreak OR epidemic OR virus OR disease",
             "mode": "ArtList",
             "format": "json"
         }
 
         r = requests.get(url, params=params, timeout=10)
-
-        if r.status_code != 200:
-            return pd.DataFrame()
-
         data = r.json()
         articles = data.get("articles", [])
 
         return pd.DataFrame([{
-            "source": "GDELT",
             "country": a.get("sourceCountry", "Unknown"),
             "signal": 1
         } for a in articles])
@@ -39,7 +35,7 @@ def load_gdelt():
         return pd.DataFrame()
 
 # -----------------------------
-# SAFE DATA SOURCE: OWID
+# SOURCE 2: OWID
 # -----------------------------
 def load_owid():
     try:
@@ -47,12 +43,7 @@ def load_owid():
         df = pd.read_csv(url, low_memory=False)
 
         df = df[["location", "total_cases"]].dropna()
-        df = df.rename(columns={
-            "location": "country",
-            "total_cases": "signal"
-        })
-
-        df["source"] = "OWID"
+        df = df.rename(columns={"location": "country", "total_cases": "signal"})
 
         return df.groupby("country").tail(1)
 
@@ -60,79 +51,83 @@ def load_owid():
         return pd.DataFrame()
 
 # -----------------------------
-# LOAD MULTI-SOURCE DATA
+# LOAD DATA
 # -----------------------------
 gdelt = load_gdelt()
 owid = load_owid()
 
 frames = []
-
 if not gdelt.empty:
     frames.append(gdelt)
-
 if not owid.empty:
     frames.append(owid)
 
-# -----------------------------
-# FALLBACK (NO CRASH EVER)
-# -----------------------------
 if len(frames) == 0:
-    st.warning("⚠️ Live data unavailable — system running in safe mode")
+    st.warning("⚠️ No live data available — showing system baseline mode")
 
-    combined = pd.DataFrame({
-        "source": ["SYSTEM"],
+    df = pd.DataFrame({
         "country": ["Global"],
-        "signal": [1],
+        "signal": [1]
     })
 else:
-    combined = pd.concat(frames, ignore_index=True)
+    df = pd.concat(frames, ignore_index=True)
 
 # -----------------------------
 # CLEAN DATA
 # -----------------------------
-combined["signal"] = pd.to_numeric(combined["signal"], errors="coerce")
-combined = combined.dropna(subset=["signal"])
+df["signal"] = pd.to_numeric(df["signal"], errors="coerce")
+df = df.dropna()
 
 # -----------------------------
-# ML ENGINE (SAFE)
+# COUNTRY AGGREGATION
 # -----------------------------
-if len(combined) >= 5:
+country_df = df.groupby("country")["signal"].sum().reset_index()
+
+# -----------------------------
+# RISK SCORING (WHO-STYLE INDEX)
+# -----------------------------
+max_signal = country_df["signal"].max()
+country_df["risk_score"] = (country_df["signal"] / max_signal) * 100
+
+# -----------------------------
+# ML ANOMALY DETECTION
+# -----------------------------
+if len(country_df) > 5:
     model = IsolationForest(contamination=0.2, random_state=42)
-    combined["anomaly"] = model.fit_predict(combined[["signal"]])
+    country_df["anomaly"] = model.fit_predict(country_df[["risk_score"]])
 
-    combined["status"] = combined["anomaly"].apply(
-        lambda x: "🚨 ALERT" if x == -1 else "🟢 SAFE"
+    country_df["status"] = country_df["anomaly"].apply(
+        lambda x: "🚨 HIGH RISK" if x == -1 else "🟢 NORMAL"
     )
 else:
-    combined["anomaly"] = 0
-    combined["status"] = "🟡 LOW DATA"
+    country_df["status"] = "🟡 INSUFFICIENT DATA"
 
 # -----------------------------
-# DASHBOARD
+# METRICS
 # -----------------------------
-st.subheader("📊 Intelligence Overview")
+st.subheader("📊 Global Risk Overview")
 
 col1, col2, col3 = st.columns(3)
 
-col1.metric("Total Signals", len(combined))
-col2.metric("Alerts", (combined["status"] == "🚨 ALERT").sum())
-col3.metric("Sources", combined["source"].nunique())
+col1.metric("Countries", len(country_df))
+col2.metric("High Risk", (country_df["status"] == "🚨 HIGH RISK").sum())
+col3.metric("Avg Risk Score", round(country_df["risk_score"].mean(), 2))
 
 # -----------------------------
-# DATA TABLE
+# TABLE
 # -----------------------------
-st.subheader("📊 Intelligence Feed")
-st.dataframe(combined, use_container_width=True)
+st.subheader("📊 Country Intelligence Feed")
+st.dataframe(country_df, use_container_width=True)
 
 # -----------------------------
-# TREND ENGINE
+# SIMPLE GLOBAL TREND
 # -----------------------------
-st.subheader("📈 Global Trend")
+st.subheader("📈 Global Trend Signal")
 
-if combined["signal"].mean() > combined["signal"].median():
-    st.error("🚨 Increasing global activity detected")
+if country_df["risk_score"].mean() > 50:
+    st.error("🚨 Elevated global health risk detected")
 else:
-    st.success("🟢 Stable global activity")
+    st.success("🟢 Global situation stable")
 
 # -----------------------------
 # ARCHITECTURE
@@ -140,15 +135,17 @@ else:
 st.subheader("🧠 System Architecture")
 
 st.code("""
-[ GDELT Live API ]
+[ GDELT News Data ]
         ↓
-[ OWID Dataset ]
+[ OWID Health Dataset ]
         ↓
-[ Auto-Fusion Layer ]
+[ Country Aggregation Layer ]
         ↓
-[ ML Engine (Isolation Forest) ]
+[ WHO-Style Risk Index (0–100) ]
         ↓
-[ Streamlit Dashboard ]
+[ ML Anomaly Detection (Isolation Forest) ]
+        ↓
+[ Streamlit Intelligence Dashboard ]
 """)
 
-st.caption("Production-ready resilient global intelligence system")
+st.caption("WHO-level global intelligence simulation system")
