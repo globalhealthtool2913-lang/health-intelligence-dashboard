@@ -1,196 +1,134 @@
 import streamlit as st
-import pandas as pd
 import requests
-import plotly.express as px
-from sklearn.ensemble import IsolationForest
+import pandas as pd
 
 # ======================================
 # CONFIG
 # ======================================
 st.set_page_config(
-    page_title="AI Global Outbreak Intelligence",
+    page_title="WHO Global Alert System",
     layout="wide"
 )
 
-st.title("🌍 AI GLOBAL OUTBREAK PREDICTION SYSTEM")
-st.caption("WHO-style intelligence + ML forecasting engine")
+st.title("🏥 WHO GLOBAL HEALTH ALERT SYSTEM")
+st.caption("Production surveillance dashboard (FastAPI + AI Engine)")
 
 # ======================================
-# LOAD LIVE DATA (GDELT)
+# BACKEND
 # ======================================
-@st.cache_data(ttl=300)
-def load_data():
+API_BASE = "http://localhost:8000"
 
-    url = "https://api.gdeltproject.org/api/v2/doc/doc"
-
-    params = {
-        "query": "health OR outbreak OR epidemic OR virus OR disease",
-        "mode": "ArtList",
-        "maxrecords": 50,
-        "format": "json"
-    }
+# ======================================
+# FETCH ALERTS
+# ======================================
+def load_alerts():
 
     try:
-        r = requests.get(url, params=params, timeout=20)
+        r = requests.get(f"{API_BASE}/alerts", timeout=10)
+
+        if r.status_code != 200:
+            return []
+
+        data = r.json()
+
+        return data.get("alerts", [])
+
+    except:
+        return []
+
+# ======================================
+# FETCH SIGNALS
+# ======================================
+def load_signals():
+
+    try:
+        r = requests.get(f"{API_BASE}/signals", timeout=10)
 
         if r.status_code != 200:
             return pd.DataFrame()
 
         data = r.json()
-        articles = data.get("articles", [])
 
-        rows = []
+        df = pd.DataFrame(data)
 
-        for a in articles:
-            rows.append({
-                "country": a.get("sourceCountry", "Unknown"),
-                "signal": 1,
-                "title": a.get("title", "No Title"),
-                "timestamp": a.get("seendate", "2025-01-01")
-            })
+        if df.empty:
+            return df
 
-        return pd.DataFrame(rows)
+        df.columns = ["country", "signal"]
+
+        return df
 
     except:
         return pd.DataFrame()
 
 # ======================================
-# DATA
+# LOAD DATA
 # ======================================
-df = load_data()
-
-# ======================================
-# SAFETY FALLBACK
-# ======================================
-if df.empty:
-    st.warning("⚠️ Live data unavailable — using fallback intelligence layer")
-
-    df = pd.DataFrame([
-        {"country": "USA", "signal": 5},
-        {"country": "India", "signal": 4},
-        {"country": "Ethiopia", "signal": 3},
-        {"country": "Brazil", "signal": 2}
-    ])
+alerts = load_alerts()
+df = load_signals()
 
 # ======================================
-# FEATURE ENGINEERING
+# ALERT SECTION
 # ======================================
-world = df.groupby("country")["signal"].sum().reset_index()
+st.subheader("🚨 Active Global Alerts")
 
-world["risk_score"] = (
-    world["signal"] / world["signal"].max()
-) * 100
-
-# ======================================
-# AI ANOMALY DETECTION
-# ======================================
-model = IsolationForest(contamination=0.2, random_state=42)
-
-world["anomaly"] = model.fit_predict(
-    world[["signal"]]
-)
-
-world["status"] = world["anomaly"].apply(
-    lambda x: "🚨 OUTBREAK SIGNAL" if x == -1 else "🟢 NORMAL"
-)
-
-# ======================================
-# PREDICTION SCORE
-# ======================================
-world["future_risk"] = (
-    world["risk_score"] * 0.7 + world["signal"] * 10
-)
-
-# ======================================
-# METRICS
-# ======================================
-st.subheader("📊 Intelligence Overview")
-
-c1, c2, c3 = st.columns(3)
-
-c1.metric("Countries", len(world))
-c2.metric("Signals", len(df))
-c3.metric("Avg Risk", round(world["risk_score"].mean(), 2))
-
-# ======================================
-# MAP
-# ======================================
-st.subheader("🗺️ Global Risk Map")
-
-fig = px.choropleth(
-    world,
-    locations="country",
-    locationmode="country names",
-    color="risk_score",
-    color_continuous_scale="Reds",
-    title="AI-Powered Global Risk Map"
-)
-
-st.plotly_chart(fig, use_container_width=True)
-
-# ======================================
-# AI OUTBREAK DETECTION
-# ======================================
-st.subheader("🧠 AI Outbreak Detection")
-
-st.dataframe(world)
-
-# ======================================
-# HIGH RISK COUNTRIES
-# ======================================
-st.subheader("🚨 Predicted High-Risk Zones")
-
-high_risk = world.sort_values(
-    "future_risk",
-    ascending=False
-)
-
-st.dataframe(high_risk)
-
-# ======================================
-# TREND ENGINE
-# ======================================
-st.subheader("📈 Global Trend Prediction")
-
-if world["future_risk"].mean() > 60:
-    st.error("🚨 HIGH OUTBREAK RISK DETECTED")
-elif world["future_risk"].mean() > 40:
-    st.warning("🟡 MODERATE RISK")
+if len(alerts) == 0:
+    st.success("🟢 No active outbreak alerts detected")
 else:
-    st.success("🟢 STABLE GLOBAL CONDITIONS")
+    st.error("🚨 HIGH RISK ALERTS ACTIVE")
+
+    alert_df = pd.DataFrame(alerts)
+
+    st.dataframe(alert_df, use_container_width=True)
 
 # ======================================
-# FUTURE RISK VISUALIZATION
+# GLOBAL OVERVIEW
 # ======================================
-st.subheader("📉 Predicted Risk Distribution")
+st.subheader("📊 Global Intelligence Overview")
 
-fig2 = px.bar(
-    world,
-    x="country",
-    y="future_risk",
-    color="future_risk",
-    title="Forecasted Outbreak Risk by Country"
-)
+if not df.empty:
 
-st.plotly_chart(fig2, use_container_width=True)
+    world = df.groupby("country")["signal"].sum().reset_index()
+
+    world["risk"] = (
+        world["signal"] / world["signal"].max()
+    ) * 100
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric("Countries", len(world))
+    c2.metric("Signals", len(df))
+    c3.metric("Avg Risk", round(world["risk"].mean(), 2))
+
+    # TOP RISKS
+    st.subheader("🔥 High Risk Countries")
+
+    st.dataframe(
+        world.sort_values("risk", ascending=False),
+        use_container_width=True
+    )
+
+else:
+    st.warning("No signal data available")
 
 # ======================================
-# ARCHITECTURE
+# SYSTEM STATUS
 # ======================================
-st.subheader("🧠 AI System Architecture")
+st.subheader("🧠 System Architecture")
 
 st.code("""
-GDELT Live Data
+[ GDELT Live Data ]
         ↓
-Feature Engineering Layer
+[ FastAPI Risk Engine ]
         ↓
-Isolation Forest (Anomaly Detection)
+[ AI Alert System ]
         ↓
-Risk Scoring Engine
+[ PostgreSQL / DB Layer ]
         ↓
-Prediction Layer
-        ↓
-Streamlit AI Dashboard
+[ Streamlit WHO Dashboard ]
 """)
 
-st.caption("AI-powered global outbreak early warning system")
+# ======================================
+# FOOTER
+# ======================================
+st.caption("WHO-style production surveillance system (alert-enabled)")
