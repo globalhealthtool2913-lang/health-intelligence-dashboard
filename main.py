@@ -8,16 +8,8 @@ def home():
 
 @app.get("/alerts")
 def alerts():
-    return {
-        "alerts": [
-            {"country": "Ethiopia", "risk": 70},
-            {"country": "USA", "risk": 55}
-        ]
-    }
+    return {"alerts": [{"country": "Ethiopia", "risk": 70}]}
 
 @app.get("/signals")
 def signals():
-    return [
-        {"country": "Ethiopia", "signal": 3},
-        {"country": "USA", "signal": 5}
-    ]
+    return [{"country": "Ethiopia", "signal": 3}]
