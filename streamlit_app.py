@@ -1,4 +1,5 @@
-import streamlit as st
+
+    import streamlit as st
 import requests
 import pandas as pd
 
@@ -6,22 +7,22 @@ import pandas as pd
 # CONFIG
 # ======================================
 st.set_page_config(
-    page_title="WHO Global Alert System",
+    page_title="WHO Global Intelligence System",
     layout="wide"
 )
 
 st.title("🏥 WHO GLOBAL HEALTH ALERT SYSTEM")
-st.caption("Production surveillance dashboard (FastAPI + AI Engine)")
+st.caption("Live production dashboard (Streamlit + FastAPI)")
 
 # ======================================
-# BACKEND
+# IMPORTANT: YOUR RAILWAY BACKEND URL
 # ======================================
-API_BASE = "http://localhost:8000"
+API_BASE = "https://your-railway-app.up.railway.app"  # 🔴 REPLACE THIS
 
 # ======================================
-# FETCH ALERTS
+# LOAD ALERTS
 # ======================================
-def load_alerts():
+def get_alerts():
 
     try:
         r = requests.get(f"{API_BASE}/alerts", timeout=10)
@@ -37,9 +38,9 @@ def load_alerts():
         return []
 
 # ======================================
-# FETCH SIGNALS
+# LOAD SIGNALS
 # ======================================
-def load_signals():
+def get_signals():
 
     try:
         r = requests.get(f"{API_BASE}/signals", timeout=10)
@@ -62,10 +63,10 @@ def load_signals():
         return pd.DataFrame()
 
 # ======================================
-# LOAD DATA
+# FETCH DATA
 # ======================================
-alerts = load_alerts()
-df = load_signals()
+alerts = get_alerts()
+df = get_signals()
 
 # ======================================
 # ALERT SECTION
@@ -75,14 +76,12 @@ st.subheader("🚨 Active Global Alerts")
 if len(alerts) == 0:
     st.success("🟢 No active outbreak alerts detected")
 else:
-    st.error("🚨 HIGH RISK ALERTS ACTIVE")
+    st.error("🚨 ACTIVE OUTBREAK ALERTS")
 
-    alert_df = pd.DataFrame(alerts)
-
-    st.dataframe(alert_df, use_container_width=True)
+    st.dataframe(pd.DataFrame(alerts), use_container_width=True)
 
 # ======================================
-# GLOBAL OVERVIEW
+# GLOBAL INTELLIGENCE
 # ======================================
 st.subheader("📊 Global Intelligence Overview")
 
@@ -100,7 +99,6 @@ if not df.empty:
     c2.metric("Signals", len(df))
     c3.metric("Avg Risk", round(world["risk"].mean(), 2))
 
-    # TOP RISKS
     st.subheader("🔥 High Risk Countries")
 
     st.dataframe(
@@ -109,7 +107,7 @@ if not df.empty:
     )
 
 else:
-    st.warning("No signal data available")
+    st.warning("No signal data received from backend")
 
 # ======================================
 # SYSTEM STATUS
@@ -117,18 +115,15 @@ else:
 st.subheader("🧠 System Architecture")
 
 st.code("""
-[ GDELT Live Data ]
+Streamlit Frontend (UI)
         ↓
-[ FastAPI Risk Engine ]
+FastAPI Backend (Railway)
         ↓
-[ AI Alert System ]
+Risk Engine
         ↓
-[ PostgreSQL / DB Layer ]
+Alert System
         ↓
-[ Streamlit WHO Dashboard ]
+WHO Surveillance Dashboard
 """)
 
-# ======================================
-# FOOTER
-# ======================================
-st.caption("WHO-style production surveillance system (alert-enabled)")
+st.caption("WHO-style production intelligence system")
