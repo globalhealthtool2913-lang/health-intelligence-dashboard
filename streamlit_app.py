@@ -4,8 +4,10 @@ import numpy as np
 import requests
 import sqlite3
 import pydeck as pdk
+
 from datetime import datetime
 from sklearn.ensemble import IsolationForest
+from sklearn.linear_model import LinearRegression
 
 # ==================================================
 # PAGE CONFIG
@@ -17,7 +19,7 @@ st.set_page_config(
 
 st.title("🌍 WHO DIGITAL TWIN SYSTEM")
 st.caption(
-    "Continuous global health intelligence platform"
+    "Continuous global surveillance + forecasting platform"
 )
 
 # ==================================================
@@ -28,7 +30,6 @@ DB = "who_digital_twin.db"
 def init_db():
 
     conn = sqlite3.connect(DB)
-
     c = conn.cursor()
 
     c.execute("""
@@ -91,18 +92,23 @@ def load_data():
     return df
 
 # ==================================================
-# LIVE SOURCE
+# LIVE SOURCE (GDELT)
 # ==================================================
 @st.cache_data(ttl=300)
 def fetch_gdelt():
 
     try:
 
-        url = "https://api.gdeltproject.org/api/v2/doc/doc"
+        url = (
+            "https://api.gdeltproject.org/"
+            "api/v2/doc/doc"
+        )
 
         params = {
             "query":
-            "health OR outbreak OR epidemic OR virus OR disease",
+            "health OR outbreak OR epidemic "
+            "OR virus OR disease",
+
             "mode": "ArtList",
             "format": "json"
         }
@@ -136,7 +142,8 @@ def fetch_gdelt():
 
                 "signal": 1,
 
-                "source": "GDELT",
+                "source":
+                "GDELT",
 
                 "timestamp":
                 str(datetime.utcnow())
@@ -148,7 +155,7 @@ def fetch_gdelt():
         return pd.DataFrame()
 
 # ==================================================
-# SYNTHETIC WORLD STATE
+# SYNTHETIC DIGITAL TWIN
 # ==================================================
 def synthetic_world():
 
@@ -165,7 +172,8 @@ def synthetic_world():
 
     return pd.DataFrame({
 
-        "country": countries,
+        "country":
+        countries,
 
         "signal":
         np.random.randint(
@@ -174,7 +182,8 @@ def synthetic_world():
             len(countries)
         ),
 
-        "source": "SYNTHETIC",
+        "source":
+        "SYNTHETIC",
 
         "timestamp":
         str(datetime.utcnow())
@@ -197,9 +206,6 @@ save_data(
 # ==================================================
 df = load_data()
 
-# ==================================================
-# SAFETY
-# ==================================================
 if df.empty:
 
     st.warning(
@@ -258,13 +264,11 @@ coords = {
 }
 
 world["lat"] = world["country"].apply(
-    lambda x:
-    coords.get(x, [0,0])[0]
+    lambda x: coords.get(x, [0, 0])[0]
 )
 
 world["lon"] = world["country"].apply(
-    lambda x:
-    coords.get(x, [0,0])[1]
+    lambda x: coords.get(x, [0, 0])[1]
 )
 
 # ==================================================
@@ -286,23 +290,27 @@ if len(world) >= 5:
         random_state=42
     )
 
-    world["anomaly"] = model.fit_predict(
-        world[["risk_score"]]
+    world["anomaly"] = (
+        model.fit_predict(
+            world[["risk_score"]]
+        )
     )
 
-    world["status"] = world["anomaly"].apply(
-        lambda x:
-        "🚨 OUTBREAK"
-        if x == -1
-        else "🟢 STABLE"
+    world["status"] = (
+        world["anomaly"]
+        .apply(
+            lambda x:
+            "🚨 OUTBREAK"
+            if x == -1
+            else "🟢 STABLE"
+        )
     )
 
 else:
-
     world["status"] = "🟡 LOW DATA"
 
 # ==================================================
-# WHO ALERTS
+# WHO ALERT LEVELS
 # ==================================================
 def who_alert(score):
 
@@ -352,7 +360,8 @@ col2.metric(
 col3.metric(
     "Average Risk",
     round(
-        world["risk_score"].mean(),
+        world["risk_score"]
+        .mean(),
         2
     )
 )
@@ -360,7 +369,9 @@ col3.metric(
 # ==================================================
 # TABLE
 # ==================================================
-st.subheader("📊 World State")
+st.subheader(
+    "📊 World State"
+)
 
 st.dataframe(
     world,
@@ -368,43 +379,34 @@ st.dataframe(
 )
 
 # ==================================================
-# GLOBAL RISK MAP
+# GLOBAL MAP
 # ==================================================
-st.subheader("🗺️ Global Risk Map")
+st.subheader(
+    "🗺️ Global Risk Map"
+)
 
 layer = pdk.Layer(
-
     "ScatterplotLayer",
-
     data=world,
-
     get_position='[lon, lat]',
-
     get_radius='risk_score * 50000',
-
     get_fill_color='[255, 0, 0, 140]',
-
     pickable=True
 )
 
 view_state = pdk.ViewState(
-
     latitude=20,
-
     longitude=0,
-
     zoom=1
 )
 
 deck = pdk.Deck(
-
     layers=[layer],
-
     initial_view_state=view_state,
-
     tooltip={
         "text":
-        "{country}\nRisk Score: {risk_score}"
+        "{country}\n"
+        "Risk Score: {risk_score}"
     }
 )
 
@@ -425,13 +427,79 @@ mean_risk = (
 if mean_risk > 60:
 
     st.error(
-        "🚨 Elevated global outbreak activity detected"
+        "🚨 Elevated global outbreak "
+        "activity detected"
     )
 
 else:
 
     st.success(
         "🟢 Global conditions stable"
+    )
+
+# ==================================================
+# FORECAST ENGINE
+# ==================================================
+st.subheader(
+    "🔮 Outbreak Forecast Engine"
+)
+
+forecast_df = (
+    world.copy()
+    .reset_index()
+)
+
+forecast_df["time"] = (
+    forecast_df.index
+)
+
+X = forecast_df[["time"]]
+
+y = forecast_df["risk_score"]
+
+forecast_model = (
+    LinearRegression()
+)
+
+forecast_model.fit(X, y)
+
+future_time = np.array([
+    [len(forecast_df) + 1]
+])
+
+future_prediction = (
+    forecast_model.predict(
+        future_time
+    )[0]
+)
+
+st.metric(
+    "Predicted Global Risk",
+    round(
+        future_prediction,
+        2
+    )
+)
+
+if future_prediction > 70:
+
+    st.error(
+        "🚨 Forecast suggests "
+        "escalating outbreak activity"
+    )
+
+elif future_prediction > 40:
+
+    st.warning(
+        "🟡 Moderate outbreak "
+        "activity predicted"
+    )
+
+else:
+
+    st.success(
+        "🟢 Stable future "
+        "conditions predicted"
     )
 
 # ==================================================
@@ -450,15 +518,18 @@ st.subheader(
 )
 
 st.write(
-    f"Country: {top_country['country']}"
+    f"Country: "
+    f"{top_country['country']}"
 )
 
 st.write(
-    f"Risk Score: {round(top_country['risk_score'],2)}"
+    f"Risk Score: "
+    f"{round(top_country['risk_score'],2)}"
 )
 
 st.write(
-    f"WHO Alert: {top_country['WHO_ALERT']}"
+    f"WHO Alert: "
+    f"{top_country['WHO_ALERT']}"
 )
 
 # ==================================================
@@ -469,25 +540,27 @@ st.subheader(
 )
 
 st.code("""
-[ Live Global Signals ]
+[ Live Signals ]
         ↓
 [ Synthetic Twin Layer ]
         ↓
-[ SQLite Persistent Memory ]
+[ SQLite Memory ]
         ↓
-[ Risk Aggregation Engine ]
+[ Risk Aggregation ]
         ↓
 [ ML Anomaly Detection ]
         ↓
 [ WHO Alert System ]
         ↓
-[ Geographic Intelligence Map ]
+[ Geographic Risk Map ]
         ↓
-[ Streamlit Intelligence Dashboard ]
+[ Forecast Engine ]
+        ↓
+[ Streamlit Dashboard ]
 """)
 
 st.caption(
-    "WHO Digital Twin System — production-ready global surveillance platform"
+    "WHO Digital Twin System — "
+    "continuous surveillance + forecasting"
 )
-
     
