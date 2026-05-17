@@ -4,12 +4,8 @@ app = FastAPI()
 
 @app.get("/")
 def home():
-    return {"status": "WHO backend running"}
+    return {"status": "SERVER IS RUNNING"}
 
-@app.get("/alerts")
-def alerts():
-    return {"alerts": [{"country": "Ethiopia", "risk": 70}]}
-
-@app.get("/signals")
-def signals():
-    return [{"country": "Ethiopia", "signal": 3}]
+@app.get("/test")
+def test():
+    return {"message": "OK"}
