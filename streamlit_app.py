@@ -11,50 +11,47 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🌍 WHO GLOBAL HEALTH INTELLIGENCE DASHBOARD")
-st.caption("Production frontend (FastAPI + PostgreSQL backend)")
-
-API_BASE = "http://localhost:8000"
+st.title("🌍 WHO GLOBAL HEALTH INTELLIGENCE")
+st.caption("Stable production dashboard (Streamlit Cloud ready)")
 
 # =========================
-# FETCH DATA FROM FASTAPI
+# BACKEND API (CHANGE IF DEPLOYED)
 # =========================
-def get_data():
+API_URL = "https://your-backend-url.com/signals"
+
+# =========================
+# LOAD DATA
+# =========================
+@st.cache_data(ttl=60)
+def load_data():
 
     try:
-        r = requests.get(f"{API_BASE}/signals", timeout=10)
+        r = requests.get(API_URL, timeout=10)
 
         if r.status_code != 200:
             return pd.DataFrame()
 
         data = r.json()
 
-        # backend returns rows
         df = pd.DataFrame(data)
 
         if df.empty:
             return df
 
-        df.columns = [
-            "id",
-            "country",
-            "signal",
-            "source",
-            "timestamp"
-        ]
+        df.columns = ["id", "country", "signal", "source", "timestamp"]
 
         return df
 
     except:
         return pd.DataFrame()
 
-df = get_data()
+df = load_data()
 
 # =========================
 # SAFETY CHECK
 # =========================
 if df.empty:
-    st.warning("⚠️ No backend data available (FastAPI or DB not running)")
+    st.warning("⚠️ No data available (backend not connected or API failed)")
     st.stop()
 
 # =========================
@@ -68,9 +65,6 @@ df = df.dropna()
 # =========================
 world = df.groupby("country")["signal"].sum().reset_index()
 
-# =========================
-# RISK SCORE
-# =========================
 world["risk"] = (world["signal"] / world["signal"].max()) * 100
 
 # =========================
@@ -80,11 +74,11 @@ st.subheader("📊 Global Intelligence Overview")
 
 c1, c2 = st.columns(2)
 
-c1.metric("Countries Tracked", len(world))
+c1.metric("Countries", len(world))
 c2.metric("Average Risk", round(world["risk"].mean(), 2))
 
 # =========================
-# MAP VISUALIZATION
+# MAP
 # =========================
 st.subheader("🗺️ Global Risk Map")
 
@@ -94,7 +88,7 @@ fig = px.choropleth(
     locationmode="country names",
     color="risk",
     color_continuous_scale="Reds",
-    title="Global Health Risk Distribution"
+    title="Global Health Risk Map"
 )
 
 st.plotly_chart(fig, use_container_width=True)
@@ -106,26 +100,30 @@ st.subheader("📋 Intelligence Feed")
 st.dataframe(world, use_container_width=True)
 
 # =========================
-# TREND LOGIC
+# TREND
 # =========================
 st.subheader("📈 Global Trend")
 
 if world["risk"].mean() > 60:
-    st.error("🚨 Elevated global health activity detected")
+    st.error("🚨 High global activity detected")
 elif world["risk"].mean() > 40:
-    st.warning("🟡 Moderate activity detected")
+    st.warning("🟡 Moderate activity")
 else:
-    st.success("🟢 Stable global conditions")
+    st.success("🟢 Stable conditions")
 
 # =========================
-# SYSTEM INFO
+# ARCHITECTURE
 # =========================
-st.subheader("🧠 Architecture")
+st.subheader("🧠 System Architecture")
 
 st.code("""
-Frontend: Streamlit
-Backend: FastAPI
-Database: PostgreSQL
-Data: GDELT (real-time news signals)
-Layer: Aggregation + Risk Scoring
-""") 
+Streamlit Frontend
+        ↓
+FastAPI Backend
+        ↓
+PostgreSQL Database
+        ↓
+GDELT Live Data
+        ↓
+Aggregation + Risk Engine
+""")
