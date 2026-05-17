@@ -10,10 +10,14 @@ def home():
 def alerts():
     return {
         "alerts": [
-            {
-                "country": "Ethiopia",
-                "risk": 65,
-                "level": "TEST ALERT"
-            }
+            {"country": "Ethiopia", "risk": 70},
+            {"country": "USA", "risk": 55}
         ]
     }
+
+@app.get("/signals")
+def signals():
+    return [
+        {"country": "Ethiopia", "signal": 3},
+        {"country": "USA", "signal": 5}
+    ]
