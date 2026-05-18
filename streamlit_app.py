@@ -3,168 +3,106 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import requests
-from sklearn.ensemble import RandomForestRegressor
+
+st.set_page_config(page_title="WHO Production Intelligence System", layout="wide")
+
+st.title("🌍 WHO Production Global Intelligence System")
+st.caption("Real-world architecture simulation (frontend dashboard)")
 
 # =============================
-# CONFIG
+# LOAD FROM BACKEND API (SIMULATED)
 # =============================
-st.set_page_config(
-    page_title="WHO Enterprise Intelligence System",
-    layout="wide"
-)
+@st.cache_data(ttl=60)
+def load_backend_data():
+    # In real system → FastAPI endpoint
+    # Example: http://backend:8000/risks
 
-st.title("🌍 WHO ENTERPRISE GLOBAL HEALTH INTELLIGENCE SYSTEM")
-st.caption("Multi-source AI early warning & outbreak prediction platform")
-
-# =============================
-# MULTI-SOURCE DATA LAYER
-# =============================
-
-# --- Health Data (OWID fallback safe) ---
-@st.cache_data(ttl=3600)
-def load_health_data():
     try:
         url = "https://covid.ourworldindata.org/data/owid-covid-data.csv"
         df = pd.read_csv(url)
 
         latest = df[df["date"] == df["date"].max()]
 
-        return latest[[
+        latest = latest[[
             "location",
             "total_cases_per_million",
             "total_deaths_per_million",
             "stringency_index"
-        ]].dropna().rename(columns={
+        ]].dropna()
+
+        latest = latest.rename(columns={
             "location": "Country",
             "total_cases_per_million": "Cases",
             "total_deaths_per_million": "Deaths",
             "stringency_index": "Policy"
         })
 
+        return latest
+
     except:
         return pd.DataFrame({
-            "Country": ["Ethiopia", "Kenya", "USA", "India", "Brazil"],
-            "Cases": [1000, 2000, 5000, 4000, 3500],
-            "Deaths": [50, 80, 300, 200, 250],
-            "Policy": [60, 70, 80, 75, 65]
+            "Country": ["Ethiopia", "Kenya", "USA", "India"],
+            "Cases": [1000, 2000, 5000, 4000],
+            "Deaths": [50, 80, 300, 200],
+            "Policy": [60, 70, 80, 75]
         })
 
-# --- News Signal Simulation Layer (enterprise placeholder) ---
-def generate_news_signals(df):
-    np.random.seed(42)
-    df["News_Signal"] = np.random.randint(0, 100, len(df))
-    df["Media_Attention"] = np.random.randint(0, 100, len(df))
-    return df
-
-df = load_health_data()
-df = generate_news_signals(df)
+df = load_backend_data()
 
 # =============================
-# DATA FUSION ENGINE
+# RISK ENGINE (PRODUCTION LOGIC)
 # =============================
 df["Risk Score"] = (
-    df["Cases"] * 0.35 +
-    df["Deaths"] * 0.35 +
-    (100 - df["Policy"]) * 0.15 +
-    df["News_Signal"] * 0.1 +
-    df["Media_Attention"] * 0.05
+    df["Cases"] * 0.4 +
+    df["Deaths"] * 0.4 +
+    (100 - df["Policy"]) * 0.2
 )
 
 # =============================
-# AI MODEL
-# =============================
-model = RandomForestRegressor(n_estimators=200, random_state=42)
-
-X = df[["Cases", "Deaths", "Policy", "News_Signal", "Media_Attention"]]
-y = df["Risk Score"]
-
-model.fit(X, y)
-
-df["AI Prediction"] = model.predict(X)
-
-# =============================
-# ALERT ENGINE (ENTERPRISE LOGIC)
+# ALERT SYSTEM (PRODUCTION RULES)
 # =============================
 threshold = df["Risk Score"].quantile(0.85)
 alerts = df[df["Risk Score"] > threshold]
 
 # =============================
-# GLOBAL METRICS
+# METRICS
 # =============================
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3 = st.columns(3)
 
 col1.metric("Countries Monitored", len(df))
 col2.metric("Active Alerts", len(alerts))
-col3.metric("Avg Risk", round(df["Risk Score"].mean(), 2))
-col4.metric("System Status", "ENTERPRISE LIVE")
+col3.metric("System Mode", "PRODUCTION SIM")
 
 # =============================
-# ALERT DASHBOARD
+# ALERT DISPLAY
 # =============================
-st.subheader("🚨 Global Early Warning Alerts")
+st.subheader("🚨 Early Warning Alerts")
 
 if alerts.empty:
-    st.success("No critical global outbreaks detected")
+    st.success("No critical global alerts detected")
 else:
     for _, row in alerts.iterrows():
-        st.error(
-            f"{row['Country']} | Risk: {row['Risk Score']:.2f}"
-        )
+        st.error(f"{row['Country']} | Risk Score: {row['Risk Score']:.2f}")
 
 # =============================
-# GLOBAL RISK MAP
+# GLOBAL MAP
 # =============================
-st.subheader("🌍 Global Risk Intelligence Map")
+st.subheader("🌍 Global Risk Map")
 
 fig = px.choropleth(
     df,
     locations="Country",
     locationmode="country names",
     color="Risk Score",
-    title="Enterprise Global Health Risk Map"
+    title="Global Health Risk Distribution"
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
 # =============================
-# AI vs REAL RISK
-# =============================
-st.subheader("🤖 AI Prediction Validation")
-
-fig2 = px.scatter(
-    df,
-    x="Risk Score",
-    y="AI Prediction",
-    color="Country",
-    size="Cases",
-    title="AI Model vs Real Risk Correlation"
-)
-
-st.plotly_chart(fig2, use_container_width=True)
-
-# =============================
 # DATA TABLE
 # =============================
-st.subheader("📊 Intelligence Dataset")
+st.subheader("📊 Intelligence Data")
 st.dataframe(df)
 
-# =============================
-# SYSTEM FEED
-# =============================
-st.subheader("🧠 Intelligence Feed")
-
-feed = [
-    "Ingesting multi-source global health signals...",
-    "Processing news + epidemiological data...",
-    "Running AI risk fusion engine...",
-    "Updating outbreak detection layer...",
-    "System operating in enterprise mode..."
-]
-
-for msg in feed:
-    st.info(msg)
-
-# =============================
-# FOOTER
-# =============================
-st.success("🟢 ENTERPRISE WHO INTELLIGENCE SYSTEM ACTIVE")
+st.success("System running in production simulation mode")
