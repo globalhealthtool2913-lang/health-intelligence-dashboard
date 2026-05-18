@@ -1,4 +1,4 @@
-import streamlit as st
+   import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
@@ -9,30 +9,47 @@ from datetime import datetime
 # CONFIG
 # =========================
 st.set_page_config(
-    page_title="WHO AI Production Agent System",
+    page_title="Autonomous WHO AI Agent System",
     layout="wide"
 )
 
-st.title("🌍 WHO Production AI Surveillance Agent")
-st.caption("AI Agent + Multi-Source Intelligence + Outbreak Reasoning Engine")
+st.title("🌍 Autonomous WHO AI Surveillance Agent")
+st.caption("Self-Reasoning Epidemic Intelligence System (Simulated Autonomy)")
 
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 # =========================
-# AI SURVEILLANCE AGENT
+# AGENT MEMORY (AUTONOMY CORE)
 # =========================
-def ai_agent_analyze(row):
+if "memory" not in st.session_state:
+    st.session_state.memory = []
 
-    risk = row["Risk Score"]
+# =========================
+# AUTONOMOUS AI REASONING ENGINE
+# =========================
+def ai_reasoning_agent(df):
 
-    if risk > 3500:
-        return "🔴 CRITICAL OUTBREAK RISK — Immediate WHO escalation recommended"
-    elif risk > 2500:
-        return "🟠 HIGH ALERT — Regional monitoring required"
-    elif risk > 1500:
-        return "🟡 MEDIUM RISK — Surveillance recommended"
+    report = []
+
+    global_risk = df["Risk Score"].mean()
+
+    if global_risk > 3000:
+        report.append("🔴 GLOBAL ESCALATION: High epidemic pressure detected")
+    elif global_risk > 2000:
+        report.append("🟠 REGIONAL WATCH: Rising outbreak signals")
     else:
-        return "🟢 LOW RISK — Stable conditions"
+        report.append("🟢 STABLE GLOBAL CONDITIONS")
+
+    high_risk_countries = df[df["Risk Score"] > df["Risk Score"].quantile(0.85)]
+
+    for _, row in high_risk_countries.iterrows():
+
+        report.append(
+            f"⚠️ ALERT: {row['Country']} "
+            f"(Risk {row['Risk Score']:.2f})"
+        )
+
+    return report
 
 # =========================
 # DATA ENGINE
@@ -87,23 +104,15 @@ df["Risk Score"] = (
 )
 
 # =========================
-# AI AGENT LAYER (CORE UPGRADE)
+# AUTONOMOUS AGENT CYCLE
 # =========================
-df["AI Agent Report"] = df.apply(ai_agent_analyze, axis=1)
+agent_report = ai_reasoning_agent(df)
 
-# =========================
-# SIGNAL DETECTION
-# =========================
-mean = df["Risk Score"].mean()
-std = df["Risk Score"].std() + 1e-6
-
-df["Signal"] = (df["Risk Score"] - mean) / std
-df["Outbreak Flag"] = df["Signal"].abs() > 1.8
-
-# =========================
-# FORECAST ENGINE
-# =========================
-df["Forecast Risk"] = df["Risk Score"] * np.random.uniform(0.9, 1.35, len(df))
+# STORE MEMORY (AUTONOMY FEATURE)
+st.session_state.memory.append({
+    "time": datetime.now().strftime("%H:%M:%S"),
+    "global_risk": float(df["Risk Score"].mean())
+})
 
 # =========================
 # METRICS
@@ -113,39 +122,29 @@ col1, col2, col3, col4 = st.columns(4)
 col1.metric("Countries Monitored", len(df))
 col2.metric("Avg Risk", round(df["Risk Score"].mean(), 2))
 col3.metric("Max Risk", round(df["Risk Score"].max(), 2))
-col4.metric("Active Alerts", int(df["Outbreak Flag"].sum()))
+col4.metric("Agent Events", len(agent_report))
 
 # =========================
-# AI AGENT OUTPUT (MAIN FEATURE)
+# AUTONOMOUS AI AGENT OUTPUT
 # =========================
-st.subheader("🧠 WHO AI Agent Intelligence Layer")
+st.subheader("🤖 Autonomous AI Agent Reasoning")
 
-for _, row in df.iterrows():
-
-    st.info(
-        f"📍 {row['Country']} → "
-        f"{row['AI Agent Report']}"
-    )
+for item in agent_report:
+    st.info(item)
 
 # =========================
-# OUTBREAK ALERTS
+# MEMORY VIEW (AUTONOMY)
 # =========================
-st.subheader("🚨 Global Outbreak Alerts")
+st.subheader("🧠 Agent Memory (Learning Loop)")
 
-alerts = df[df["Outbreak Flag"] == True]
+memory_df = pd.DataFrame(st.session_state.memory)
 
-if alerts.empty:
-    st.success("🟢 No global critical outbreak signals detected")
-else:
-    for _, row in alerts.iterrows():
-        st.error(
-            f"{row['Country']} → Risk {row['Risk Score']:.2f}"
-        )
+st.line_chart(memory_df.set_index("time"))
 
 # =========================
-# GLOBAL MAP
+# OUTBREAK MAP
 # =========================
-st.subheader("🌍 Global Surveillance Map")
+st.subheader("🌍 Global Autonomous Surveillance Map")
 
 fig = px.choropleth(
     df,
@@ -153,34 +152,44 @@ fig = px.choropleth(
     locationmode="country names",
     color="Risk Score",
     hover_name="Country",
-    title="WHO AI Production Surveillance Map"
+    title="Autonomous WHO AI Map"
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
 # =========================
-# FORECAST
+# ALERT ENGINE
 # =========================
-st.subheader("📈 Predictive Intelligence Layer")
+st.subheader("🚨 Autonomous Alerts")
 
-st.bar_chart(df.set_index("Country")["Forecast Risk"])
+threshold = df["Risk Score"].quantile(0.85)
+
+alerts = df[df["Risk Score"] > threshold]
+
+if alerts.empty:
+    st.success("🟢 No critical autonomous alerts")
+else:
+    for _, row in alerts.iterrows():
+        st.error(
+            f"{row['Country']} → Autonomous Risk {row['Risk Score']:.2f}"
+        )
 
 # =========================
 # INTELLIGENCE TABLE
 # =========================
-st.subheader("📊 AI Surveillance Data")
+st.subheader("📊 Autonomous Intelligence Dataset")
 
 st.dataframe(df)
 
 # =========================
-# EXPORT CAPABILITY (PRODUCTION FEATURE)
+# EXPORT
 # =========================
 csv = df.to_csv(index=False).encode("utf-8")
 
 st.download_button(
-    "⬇ Download WHO Intelligence Report",
+    "⬇ Download Autonomous WHO Report",
     csv,
-    "who_ai_report.csv",
+    "autonomous_who_report.csv",
     "text/csv"
 )
 
@@ -190,6 +199,6 @@ st.download_button(
 st.markdown("---")
 
 st.write(
-    "✔ WHO Production AI Agent System | "
-    "Surveillance + Reasoning + Forecasting + Alert Engine"
-)
+    "✔ Autonomous WHO AI Agent System | "
+    "Self-Reasoning + Memory Loop + Risk Intelligence"
+) 
