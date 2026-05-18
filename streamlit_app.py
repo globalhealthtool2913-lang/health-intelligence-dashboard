@@ -3,37 +3,67 @@ import pandas as pd
 import numpy as np
 import requests
 import plotly.express as px
-import os
 from datetime import datetime
-from openai import OpenAI
 
 # =========================
 # CONFIG
 # =========================
 st.set_page_config(
-    page_title="GPT WHO Autonomous Agent",
+    page_title="Autonomous WHO AI Agent System",
     layout="wide"
 )
 
-st.title("🌍 GPT Autonomous WHO Surveillance Agent")
-st.caption("Real LLM Reasoning + Global Epidemic Intelligence System")
+st.title("🌍 Autonomous WHO AI Surveillance Agent")
+st.caption("Self-Reasoning Epidemic Intelligence System (Simulated Autonomy)")
+
+HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 # =========================
-# GPT CLIENT
+# AGENT MEMORY (AUTONOMY CORE)
 # =========================
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+if "memory" not in st.session_state:
+    st.session_state.memory = []
 
 # =========================
-# DATA SOURCE
+# AUTONOMOUS AI REASONING ENGINE
+# =========================
+def ai_reasoning_agent(df):
+
+    report = []
+
+    global_risk = df["Risk Score"].mean()
+
+    if global_risk > 3000:
+        report.append("🔴 GLOBAL ESCALATION: High epidemic pressure detected")
+    elif global_risk > 2000:
+        report.append("🟠 REGIONAL WATCH: Rising outbreak signals")
+    else:
+        report.append("🟢 STABLE GLOBAL CONDITIONS")
+
+    high_risk_countries = df[df["Risk Score"] > df["Risk Score"].quantile(0.85)]
+
+    for _, row in high_risk_countries.iterrows():
+
+        report.append(
+            f"⚠️ ALERT: {row['Country']} "
+            f"(Risk {row['Risk Score']:.2f})"
+        )
+
+    return report
+
+# =========================
+# DATA ENGINE
 # =========================
 @st.cache_data(ttl=180)
 def load_data():
 
     try:
         url = "https://disease.sh/v3/covid-19/countries"
-        r = requests.get(url, timeout=20)
+
+        r = requests.get(url, headers=HEADERS, timeout=20)
 
         if r.status_code == 200:
+
             data = r.json()
             df = pd.DataFrame(data)
 
@@ -59,6 +89,9 @@ def load_data():
         "Policy": np.random.randint(40, 90, 5)
     })
 
+# =========================
+# LOAD DATA
+# =========================
 df = load_data()
 
 # =========================
@@ -71,87 +104,80 @@ df["Risk Score"] = (
 )
 
 # =========================
-# GPT AUTONOMOUS AGENT CORE
+# AUTONOMOUS AGENT CYCLE
 # =========================
-def gpt_agent(context_df):
+agent_report = ai_reasoning_agent(df)
 
-    sample = context_df.head(10).to_dict(orient="records")
-
-    prompt = f"""
-You are a WHO epidemic intelligence AI agent.
-
-Analyze the following global health data:
-
-{sample}
-
-Tasks:
-1. Identify outbreak risks
-2. Classify severity (LOW, MEDIUM, HIGH, CRITICAL)
-3. Detect anomalies
-4. Suggest WHO actions
-5. Summarize global situation in 3 lines
-
-Return structured response.
-"""
-
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "You are a WHO epidemic intelligence agent."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-
-    return response.choices[0].message.content
+# STORE MEMORY (AUTONOMY FEATURE)
+st.session_state.memory.append({
+    "time": datetime.now().strftime("%H:%M:%S"),
+    "global_risk": float(df["Risk Score"].mean())
+})
 
 # =========================
-# RUN GPT AGENT
+# METRICS
 # =========================
-st.subheader("🤖 GPT Autonomous WHO Agent Analysis")
+col1, col2, col3, col4 = st.columns(4)
 
-if st.button("Run WHO AI Agent"):
-
-    with st.spinner("AI Agent analyzing global epidemic signals..."):
-
-        report = gpt_agent(df)
-
-        st.success("AI Analysis Complete")
-
-        st.write(report)
+col1.metric("Countries Monitored", len(df))
+col2.metric("Avg Risk", round(df["Risk Score"].mean(), 2))
+col3.metric("Max Risk", round(df["Risk Score"].max(), 2))
+col4.metric("Agent Events", len(agent_report))
 
 # =========================
-# BASIC ALERT ENGINE (backup layer)
+# AUTONOMOUS AI AGENT OUTPUT
 # =========================
-threshold = df["Risk Score"].quantile(0.85)
-alerts = df[df["Risk Score"] > threshold]
+st.subheader("🤖 Autonomous AI Agent Reasoning")
 
-st.subheader("🚨 System Alerts")
-
-if alerts.empty:
-    st.success("🟢 No critical signals detected")
-else:
-    for _, row in alerts.iterrows():
-        st.error(f"{row['Country']} → Risk {row['Risk Score']:.2f}")
+for item in agent_report:
+    st.info(item)
 
 # =========================
-# MAP
+# MEMORY VIEW (AUTONOMY)
 # =========================
-st.subheader("🌍 Global Risk Map")
+st.subheader("🧠 Agent Memory (Learning Loop)")
+
+memory_df = pd.DataFrame(st.session_state.memory)
+
+st.line_chart(memory_df.set_index("time"))
+
+# =========================
+# OUTBREAK MAP
+# =========================
+st.subheader("🌍 Global Autonomous Surveillance Map")
 
 fig = px.choropleth(
     df,
     locations="Country",
     locationmode="country names",
     color="Risk Score",
-    title="GPT WHO Surveillance Map"
+    hover_name="Country",
+    title="Autonomous WHO AI Map"
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
 # =========================
-# DATA
+# ALERT ENGINE
 # =========================
-st.subheader("📊 Intelligence Data")
+st.subheader("🚨 Autonomous Alerts")
+
+threshold = df["Risk Score"].quantile(0.85)
+
+alerts = df[df["Risk Score"] > threshold]
+
+if alerts.empty:
+    st.success("🟢 No critical autonomous alerts")
+else:
+    for _, row in alerts.iterrows():
+        st.error(
+            f"{row['Country']} → Autonomous Risk {row['Risk Score']:.2f}"
+        )
+
+# =========================
+# INTELLIGENCE TABLE
+# =========================
+st.subheader("📊 Autonomous Intelligence Dataset")
 
 st.dataframe(df)
 
@@ -161,9 +187,9 @@ st.dataframe(df)
 csv = df.to_csv(index=False).encode("utf-8")
 
 st.download_button(
-    "⬇ Download WHO GPT Report",
+    "⬇ Download Autonomous WHO Report",
     csv,
-    "gpt_who_report.csv",
+    "autonomous_who_report.csv",
     "text/csv"
 )
 
@@ -172,4 +198,7 @@ st.download_button(
 # =========================
 st.markdown("---")
 
-st.write("✔ GPT Autonomous WHO Agent System | Real LLM + Epidemiology Intelligence")
+st.write(
+    "✔ Autonomous WHO AI Agent System | "
+    "Self-Reasoning + Memory Loop + Risk Intelligence"
+)
