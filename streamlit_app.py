@@ -1,4 +1,4 @@
-import streamlit as st
+   import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -6,31 +6,34 @@ import random
 
 from sklearn.ensemble import RandomForestRegressor
 
-# -----------------------------
+# =============================
 # CONFIG
-# -----------------------------
+# =============================
 st.set_page_config(
-    page_title="WHO AI Outbreak System",
+    page_title="WHO AI Outbreak Intelligence System",
     layout="wide"
 )
 
-# -----------------------------
-# TITLE (CLEAN)
-# -----------------------------
 st.title("🌍 WHO AI Outbreak Intelligence System")
-st.caption("Experimental AI-based global health monitoring dashboard")
+st.caption("AI + Time-Series Epidemiology Monitoring Dashboard")
 
-# -----------------------------
+# =============================
 # COUNTRIES
-# -----------------------------
+# =============================
 countries = [
     "Ethiopia", "Kenya", "Sudan", "Uganda", "Nigeria",
     "India", "Brazil", "Germany", "USA", "China"
 ]
 
-# -----------------------------
-# DATA GENERATION
-# -----------------------------
+# =============================
+# MEMORY SYSTEM (TIME SERIES)
+# =============================
+if "history" not in st.session_state:
+    st.session_state.history = {c: [] for c in countries}
+
+# =============================
+# DATA GENERATION + MEMORY
+# =============================
 data = []
 
 for c in countries:
@@ -47,6 +50,14 @@ for c in countries:
         media * 0.15
     )
 
+    # -------------------------
+    # STORE TIME-SERIES MEMORY
+    # -------------------------
+    st.session_state.history[c].append(risk)
+
+    if len(st.session_state.history[c]) > 10:
+        st.session_state.history[c].pop(0)
+
     data.append({
         "Country": c,
         "Epidemiology": epi,
@@ -58,9 +69,9 @@ for c in countries:
 
 df = pd.DataFrame(data)
 
-# -----------------------------
-# ML MODEL
-# -----------------------------
+# =============================
+# AI MODEL
+# =============================
 model = RandomForestRegressor(n_estimators=150, random_state=42)
 
 X = df[["Epidemiology", "Healthcare", "Social", "Media"]]
@@ -70,9 +81,9 @@ model.fit(X, y)
 
 df["AI Prediction"] = model.predict(X)
 
-# -----------------------------
-# RISK LEVELS
-# -----------------------------
+# =============================
+# RISK LEVEL
+# =============================
 def risk_level(x):
     if x > 80:
         return "High"
@@ -82,54 +93,54 @@ def risk_level(x):
 
 df["Risk Level"] = df["AI Prediction"].apply(risk_level)
 
-# -----------------------------
+# =============================
 # METRICS
-# -----------------------------
+# =============================
 col1, col2, col3, col4 = st.columns(4)
 
 col1.metric("Countries", len(df))
 col2.metric("High Risk", len(df[df["AI Prediction"] > 80]))
 col3.metric("Avg Risk", round(df["AI Prediction"].mean(), 2))
-col4.metric("System", "Active")
+col4.metric("System", "ACTIVE")
 
-# -----------------------------
-# ALERTS
-# -----------------------------
+# =============================
+# ALERT SYSTEM
+# =============================
 st.subheader("🚨 Alerts")
 
 alerts = df[df["AI Prediction"] > 80]
 
 if alerts.empty:
-    st.success("No high-risk signals detected")
+    st.success("No high-risk outbreak signals detected")
 else:
     for _, row in alerts.iterrows():
-        st.error(f"{row['Country']} - Risk: {row['Risk Level']}")
+        st.error(f"{row['Country']} | Risk: {row['Risk Level']}")
 
-# -----------------------------
+# =============================
 # TABLE
-# -----------------------------
+# =============================
 st.subheader("📊 Data Overview")
 st.dataframe(df)
 
-# -----------------------------
-# VISUALIZATION
-# -----------------------------
-st.subheader("🌍 Risk Visualization")
+# =============================
+# VISUALIZATION 1
+# =============================
+st.subheader("🌍 Global Risk Distribution")
 
 fig = px.bar(
     df,
     x="Country",
     y="AI Prediction",
     color="AI Prediction",
-    title="Global Risk Distribution"
+    title="AI Risk Across Countries"
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
-# -----------------------------
-# COMPARISON CHART
-# -----------------------------
-st.subheader("📈 Comparison View")
+# =============================
+# VISUALIZATION 2
+# =============================
+st.subheader("📈 AI vs Risk Score")
 
 fig2 = px.scatter(
     df,
@@ -137,29 +148,56 @@ fig2 = px.scatter(
     y="AI Prediction",
     color="Country",
     size="AI Prediction",
-    title="Risk vs AI Prediction"
+    title="Prediction Correlation View"
 )
 
 st.plotly_chart(fig2, use_container_width=True)
 
-# -----------------------------
-# FEED
-# -----------------------------
+# =============================
+# 🧠 TIME-SERIES MEMORY VIEW
+# =============================
+st.subheader("📈 Outbreak Time-Series Memory")
+
+selected_country = st.selectbox("Select Country", countries)
+
+history = st.session_state.history.get(selected_country, [])
+
+if len(history) > 1:
+
+    ts_df = pd.DataFrame({
+        "Time Step": list(range(len(history))),
+        "Risk": history
+    })
+
+    fig3 = px.line(
+        ts_df,
+        x="Time Step",
+        y="Risk",
+        title=f"{selected_country} Risk Evolution"
+    )
+
+    st.plotly_chart(fig3, use_container_width=True)
+
+else:
+    st.info("Not enough history yet — keep running the app")
+
+# =============================
+# SYSTEM FEED
+# =============================
 st.subheader("🧠 System Feed")
 
 messages = [
-    "Monitoring global health signals...",
-    "Updating risk indicators...",
-    "Analyzing epidemiological patterns...",
-    "Processing multi-region data...",
-    "System running normally..."
+    "Monitoring epidemiological signals...",
+    "Updating AI risk models...",
+    "Tracking global health patterns...",
+    "Processing multi-region data streams...",
+    "System operating normally..."
 ]
 
 for msg in random.sample(messages, 3):
     st.info(msg)
 
-# -----------------------------
+# =============================
 # FOOTER
-# -----------------------------
-st.success("System running successfully")
-    
+# =============================
+st.success("System running with Time-Series Memory Enabled") 
