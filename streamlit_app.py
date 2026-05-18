@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import random
+import requests
+import time
 
 from sklearn.ensemble import RandomForestRegressor
 
@@ -10,71 +11,61 @@ from sklearn.ensemble import RandomForestRegressor
 # CONFIG
 # =============================
 st.set_page_config(
-    page_title="WHO AI Outbreak Intelligence System",
+    page_title="Global Health Intelligence System",
     layout="wide"
 )
 
-st.title("🌍 WHO AI Outbreak Intelligence System")
-st.caption("AI + Time-Series Epidemiology Monitoring Dashboard")
+st.title("🌍 Global Health AI Intelligence System")
+st.caption("Real-data + AI + Time-series outbreak monitoring")
 
 # =============================
-# COUNTRIES
+# AUTO REFRESH CONTROL
 # =============================
-countries = [
-    "Ethiopia", "Kenya", "Sudan", "Uganda", "Nigeria",
-    "India", "Brazil", "Germany", "USA", "China"
-]
+refresh = st.sidebar.slider("Refresh Interval (seconds)", 10, 120, 30)
 
 # =============================
-# MEMORY SYSTEM (TIME SERIES)
+# REAL DATA SOURCE (OWID)
 # =============================
-if "history" not in st.session_state:
-    st.session_state.history = {c: [] for c in countries}
+@st.cache_data(ttl=3600)
+def load_data():
+    url = "https://covid.ourworldindata.org/data/owid-covid-data.csv"
+    df = pd.read_csv(url)
 
-# =============================
-# DATA GENERATION + MEMORY
-# =============================
-data = []
+    latest = df[df["date"] == df["date"].max()]
 
-for c in countries:
+    latest = latest[[
+        "location",
+        "total_cases_per_million",
+        "total_deaths_per_million",
+        "stringency_index"
+    ]].dropna()
 
-    epi = random.randint(20, 100)
-    health = random.randint(20, 100)
-    social = random.randint(20, 100)
-    media = random.randint(20, 100)
-
-    risk = (
-        epi * 0.4 +
-        health * 0.25 +
-        social * 0.2 +
-        media * 0.15
-    )
-
-    # -------------------------
-    # STORE TIME-SERIES MEMORY
-    # -------------------------
-    st.session_state.history[c].append(risk)
-
-    if len(st.session_state.history[c]) > 10:
-        st.session_state.history[c].pop(0)
-
-    data.append({
-        "Country": c,
-        "Epidemiology": epi,
-        "Healthcare": health,
-        "Social": social,
-        "Media": media,
-        "Risk Score": risk
+    latest = latest.rename(columns={
+        "location": "Country",
+        "total_cases_per_million": "Cases",
+        "total_deaths_per_million": "Deaths",
+        "stringency_index": "Policy"
     })
 
-df = pd.DataFrame(data)
+    return latest
+
+df = load_data()
+
+# =============================
+# RISK ENGINE (REAL DATA)
+# =============================
+df["Risk Score"] = (
+    df["Cases"] * 0.4 +
+    df["Deaths"] * 0.4 +
+    (100 - df["Policy"]) * 0.2
+)
 
 # =============================
 # AI MODEL
 # =============================
 model = RandomForestRegressor(n_estimators=150, random_state=42)
 
-X = df[["Epidemiology", "Healthcare", "Social", "Media"]]
+X = df[["Cases", "Deaths", "Policy"]]
 y = df["Risk Score"]
 
 model.fit(X, y)
@@ -82,16 +73,21 @@ model.fit(X, y)
 df["AI Prediction"] = model.predict(X)
 
 # =============================
-# RISK LEVEL
+# MEMORY SYSTEM (TIME SERIES)
 # =============================
-def risk_level(x):
-    if x > 80:
-        return "High"
-    elif x > 60:
-        return "Moderate"
-    return "Low"
+if "history" not in st.session_state:
+    st.session_state.history = {}
 
-df["Risk Level"] = df["AI Prediction"].apply(risk_level)
+for c in df["Country"].head(15):
+
+    if c not in st.session_state.history:
+        st.session_state.history[c] = []
+
+    val = float(df[df["Country"] == c]["Risk Score"].values[0])
+    st.session_state.history[c].append(val)
+
+    if len(st.session_state.history[c]) > 10:
+        st.session_state.history[c].pop(0)
 
 # =============================
 # METRICS
@@ -99,105 +95,110 @@ df["Risk Level"] = df["AI Prediction"].apply(risk_level)
 col1, col2, col3, col4 = st.columns(4)
 
 col1.metric("Countries", len(df))
-col2.metric("High Risk", len(df[df["AI Prediction"] > 80]))
-col3.metric("Avg Risk", round(df["AI Prediction"].mean(), 2))
-col4.metric("System", "ACTIVE")
+col2.metric("High Risk", len(df[df["Risk Score"] > df["Risk Score"].quantile(0.85)]))
+col3.metric("Avg Risk", round(df["Risk Score"].mean(), 2))
+col4.metric("AI Status", "LIVE")
 
 # =============================
 # ALERT SYSTEM
 # =============================
-st.subheader("🚨 Alerts")
+st.subheader("🚨 Global Alerts")
 
-alerts = df[df["AI Prediction"] > 80]
+alerts = df[df["Risk Score"] > df["Risk Score"].quantile(0.85)]
 
 if alerts.empty:
-    st.success("No high-risk outbreak signals detected")
+    st.success("No critical global alerts detected")
 else:
     for _, row in alerts.iterrows():
-        st.error(f"{row['Country']} | Risk: {row['Risk Level']}")
+        st.error(f"{row['Country']} | Risk Score: {row['Risk Score']:.2f}")
 
 # =============================
-# TABLE
+# MAIN TABLE
 # =============================
-st.subheader("📊 Data Overview")
+st.subheader("📊 Global Intelligence Dataset")
 st.dataframe(df)
 
 # =============================
-# VISUALIZATION 1
+# RISK VISUALIZATION
 # =============================
-st.subheader("🌍 Global Risk Distribution")
+st.subheader("🌍 Global Risk Map")
 
 fig = px.bar(
-    df,
+    df.sort_values("Risk Score", ascending=False).head(20),
     x="Country",
-    y="AI Prediction",
-    color="AI Prediction",
-    title="AI Risk Across Countries"
+    y="Risk Score",
+    color="Risk Score",
+    title="Global Health Risk Distribution"
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
 # =============================
-# VISUALIZATION 2
+# AI VS REAL RISK
 # =============================
-st.subheader("📈 AI vs Risk Score")
+st.subheader("🤖 AI Prediction vs Real Risk")
 
 fig2 = px.scatter(
     df,
     x="Risk Score",
     y="AI Prediction",
     color="Country",
-    size="AI Prediction",
-    title="Prediction Correlation View"
+    size="Cases",
+    title="AI Model Validation View"
 )
 
 st.plotly_chart(fig2, use_container_width=True)
 
 # =============================
-# 🧠 TIME-SERIES MEMORY VIEW
+# TIME SERIES VIEW
 # =============================
 st.subheader("📈 Outbreak Time-Series Memory")
 
-selected_country = st.selectbox("Select Country", countries)
+selected_country = st.selectbox("Select Country", df["Country"].head(15))
 
 history = st.session_state.history.get(selected_country, [])
 
 if len(history) > 1:
 
-    ts_df = pd.DataFrame({
-        "Time Step": list(range(len(history))),
+    ts = pd.DataFrame({
+        "Time": list(range(len(history))),
         "Risk": history
     })
 
     fig3 = px.line(
-        ts_df,
-        x="Time Step",
+        ts,
+        x="Time",
         y="Risk",
         title=f"{selected_country} Risk Evolution"
     )
 
     st.plotly_chart(fig3, use_container_width=True)
-
 else:
-    st.info("Not enough history yet — keep running the app")
+    st.info("Building historical data... keep refreshing")
 
 # =============================
-# SYSTEM FEED
+# INTELLIGENCE FEED
 # =============================
-st.subheader("🧠 System Feed")
+st.subheader("🧠 AI Intelligence Feed")
 
-messages = [
-    "Monitoring epidemiological signals...",
-    "Updating AI risk models...",
-    "Tracking global health patterns...",
-    "Processing multi-region data streams...",
-    "System operating normally..."
+feed = [
+    "Processing global epidemiological signals...",
+    "Updating risk prediction model...",
+    "Monitoring cross-country health indicators...",
+    "Analyzing outbreak probability clusters...",
+    "System operating in real-time mode..."
 ]
 
-for msg in random.sample(messages, 3):
+for msg in feed[:3]:
     st.info(msg)
+
+# =============================
+# AUTO REFRESH SYSTEM
+# =============================
+time.sleep(refresh)
+st.rerun()
 
 # =============================
 # FOOTER
 # =============================
-st.success("System running with Time-Series Memory Enabled") 
+st.success("System Running in Real-Time Mode")
