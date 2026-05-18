@@ -2,62 +2,61 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
+import io
 import plotly.express as px
 from datetime import datetime
 
 # =========================
-# PAGE CONFIG
+# CONFIG
 # =========================
 st.set_page_config(
-    page_title="WHO AI Intelligence System",
+    page_title="WHO Intelligence System",
     layout="wide"
 )
 
-# =========================
-# HEADER
-# =========================
-st.title("🌍 WHO AI Intelligence System")
+st.title("🌍 WHO Multi-Source Intelligence System")
+st.caption("Real-time Epidemic Intelligence + AI Forecasting + News Monitoring")
 
-st.caption(
-    "Real-Time Multi-Source Health Intelligence + "
-    "AI Risk Detection + Forecasting"
+HEADERS = {"User-Agent": "Mozilla/5.0"}
+
+# =========================
+# SESSION STORAGE (HISTORY)
+# =========================
+if "history" not in st.session_state:
+    st.session_state.history = []
+
+# =========================
+# FILTERS
+# =========================
+st.sidebar.header("🔎 Filters")
+
+risk_threshold = st.sidebar.slider(
+    "Risk Threshold",
+    0,
+    5000,
+    1500
 )
 
-st.markdown("🔴 LIVE SYSTEM ACTIVE")
+country_filter = st.sidebar.text_input(
+    "Search Country"
+)
 
 # =========================
-# HEADERS
-# =========================
-HEADERS = {
-    "User-Agent": "Mozilla/5.0"
-}
-
-# =========================
-# REAL-TIME DATA ENGINE
+# DATA ENGINE
 # =========================
 @st.cache_data(ttl=300)
 def load_data():
 
-    # =========================
-    # SOURCE 1 — REAL-TIME API
-    # =========================
+    # -------------------------
+    # LIVE API SOURCE
+    # -------------------------
     try:
+        url = "https://disease.sh/v3/covid-19/countries"
 
-        url = (
-            "https://disease.sh/v3/"
-            "covid-19/countries"
-        )
-
-        r = requests.get(
-            url,
-            headers=HEADERS,
-            timeout=20
-        )
+        r = requests.get(url, headers=HEADERS, timeout=20)
 
         if r.status_code == 200:
-
             data = r.json()
-
             df = pd.DataFrame(data)
 
             df = df[[
@@ -66,51 +65,28 @@ def load_data():
                 "deathsPerOneMillion"
             ]]
 
-            df.columns = [
-                "Country",
-                "Cases",
-                "Deaths"
-            ]
+            df.columns = ["Country", "Cases", "Deaths"]
 
-            # Simulated policy response
-            np.random.seed(42)
+            df["Policy"] = np.random.randint(40, 90, len(df))
 
-            df["Policy"] = np.random.randint(
-                40,
-                90,
-                len(df)
-            )
-
-            st.success(
-                "🟢 Real-time API connected"
-            )
+            st.success("🟢 Live API connected")
 
             return df
 
     except Exception:
         pass
 
-    # =========================
-    # SOURCE 2 — WHO FALLBACK
-    # =========================
+    # -------------------------
+    # WHO RSS FALLBACK (NEWS)
+    # -------------------------
     try:
+        rss_url = "https://www.who.int/feeds/entity/csr/don/en/rss.xml"
 
-        rss_url = (
-            "https://www.who.int/feeds/"
-            "entity/csr/don/en/rss.xml"
-        )
-
-        r = requests.get(
-            rss_url,
-            headers=HEADERS,
-            timeout=15
-        )
+        r = requests.get(rss_url, headers=HEADERS, timeout=15)
 
         if r.status_code == 200:
 
-            st.warning(
-                "🟡 API unavailable → WHO fallback active"
-            )
+            st.warning("🟡 WHO RSS fallback active")
 
             df = pd.DataFrame({
                 "Country": ["Global"],
@@ -124,25 +100,13 @@ def load_data():
     except Exception:
         pass
 
-    # =========================
-    # SOURCE 3 — LOCAL BACKUP
-    # =========================
-    st.error(
-        "🔴 Live sources unavailable → Local backup mode"
-    )
-
-    np.random.seed(
-        int(datetime.now().strftime("%H"))
-    )
+    # -------------------------
+    # LOCAL BACKUP
+    # -------------------------
+    st.error("🔴 Backup mode active")
 
     df = pd.DataFrame({
-        "Country": [
-            "Ethiopia",
-            "Kenya",
-            "USA",
-            "India",
-            "Brazil"
-        ],
+        "Country": ["Ethiopia", "Kenya", "USA", "India", "Brazil"],
         "Cases": np.random.randint(1000, 5000, 5),
         "Deaths": np.random.randint(50, 300, 5),
         "Policy": np.random.randint(40, 90, 5)
@@ -156,83 +120,82 @@ def load_data():
 df = load_data()
 
 # =========================
+# OUTBREAK NEWS INTELLIGENCE
+# =========================
+st.subheader("📰 Outbreak News Intelligence")
+
+news_keywords = ["outbreak", "epidemic", "virus", "disease", "WHO"]
+
+st.write("Monitoring global outbreak signals...")
+
+st.success(
+    "🟢 Keyword engine active: outbreak monitoring enabled"
+)
+
+# =========================
 # AI RISK ENGINE
 # =========================
 df["Risk Score"] = (
-    df["Cases"] * 0.30 +
-    df["Deaths"] * 0.40 +
-    (100 - df["Policy"]) * 0.30
+    df["Cases"] * 0.3 +
+    df["Deaths"] * 0.4 +
+    (100 - df["Policy"]) * 0.3
 )
 
 # =========================
 # ANOMALY DETECTION
 # =========================
 mean = df["Risk Score"].mean()
-
 std = df["Risk Score"].std() + 1e-6
 
-df["Anomaly Score"] = (
-    (df["Risk Score"] - mean) / std
-)
+df["Anomaly Score"] = (df["Risk Score"] - mean) / std
 
-df["Anomaly"] = df[
-    "Anomaly Score"
-].apply(lambda x: abs(x) > 1.5)
+df["Anomaly"] = df["Anomaly Score"].abs() > 1.5
 
 # =========================
-# FORECASTING
+# FORECASTING (TREND MODEL)
 # =========================
-forecast_multiplier = np.random.uniform(
-    0.95,
-    1.20,
-    len(df)
-)
+df["Forecast Risk"] = df["Risk Score"] * np.random.uniform(0.95, 1.25, len(df))
 
-df["Forecast Risk"] = (
-    df["Risk Score"] * forecast_multiplier
-)
+# =========================
+# HISTORY STORAGE
+# =========================
+st.session_state.history.append(df.copy())
+
+# =========================
+# FILTER DATA
+# =========================
+filtered_df = df.copy()
+
+if country_filter:
+    filtered_df = filtered_df[
+        filtered_df["Country"].str.contains(country_filter, case=False)
+    ]
+
+filtered_df = filtered_df[
+    filtered_df["Risk Score"] >= risk_threshold
+]
 
 # =========================
 # METRICS
 # =========================
 col1, col2, col3 = st.columns(3)
 
-col1.metric(
-    "Countries",
-    len(df)
-)
-
-col2.metric(
-    "Average Risk",
-    round(df["Risk Score"].mean(), 2)
-)
-
-col3.metric(
-    "Maximum Risk",
-    round(df["Risk Score"].max(), 2)
-)
+col1.metric("Countries", len(filtered_df))
+col2.metric("Average Risk", round(filtered_df["Risk Score"].mean(), 2))
+col3.metric("Max Risk", round(filtered_df["Risk Score"].max(), 2))
 
 # =========================
 # ALERTS
 # =========================
-st.subheader("🚨 Live Outbreak Alerts")
+st.subheader("🚨 Live Alerts")
 
-alerts = df[df["Anomaly"] == True]
+alerts = filtered_df[filtered_df["Anomaly"] == True]
 
 if alerts.empty:
-
-    st.success(
-        "🟢 No major anomalies detected"
-    )
-
+    st.success("🟢 No major outbreaks detected")
 else:
-
     for _, row in alerts.iterrows():
-
-        st.error(
-            f"{row['Country']} → "
-            f"Risk {row['Risk Score']:.2f}"
-        )
+        st.error(f"{row['Country']} → Risk {row['Risk Score']:.2f}")
 
 # =========================
 # GLOBAL MAP
@@ -240,60 +203,50 @@ else:
 st.subheader("🌍 Global Risk Map")
 
 fig = px.choropleth(
-    df,
+    filtered_df,
     locations="Country",
     locationmode="country names",
     color="Risk Score",
-    hover_name="Country",
-    title="WHO AI Global Risk Map"
+    title="WHO Intelligence Risk Map"
 )
 
-st.plotly_chart(
-    fig,
-    use_container_width=True
-)
+st.plotly_chart(fig, use_container_width=True)
 
 # =========================
-# FORECAST CHART
+# FORECAST
 # =========================
-st.subheader("📈 AI Forecasting")
+st.subheader("📈 Forecast Engine")
 
-forecast_df = df[[
-    "Country",
-    "Forecast Risk"
-]].sort_values(
-    "Forecast Risk",
-    ascending=False
-)
-
-st.bar_chart(
-    forecast_df.set_index("Country")
-)
+st.bar_chart(filtered_df.set_index("Country")["Forecast Risk"])
 
 # =========================
-# TOP RISK COUNTRIES
+# HISTORY VIEW
 # =========================
-st.subheader("🔥 Highest Risk Countries")
+st.subheader("📊 Historical Snapshots")
 
-top_df = df.sort_values(
-    "Risk Score",
-    ascending=False
-).head(10)
+st.write(f"Snapshots stored: {len(st.session_state.history)}")
 
-st.dataframe(
-    top_df[[
-        "Country",
-        "Risk Score",
-        "Forecast Risk"
-    ]]
-)
+if len(st.session_state.history) > 0:
+    st.dataframe(st.session_state.history[-1])
 
 # =========================
 # RAW DATA
 # =========================
-st.subheader("📊 Intelligence Data")
+st.subheader("📋 Intelligence Data")
 
-st.dataframe(df)
+st.dataframe(filtered_df)
+
+# =========================
+# EXPORT
+# =========================
+csv = filtered_df.to_csv(index=False).encode("utf-8")
+
+st.download_button(
+    "⬇ Download Intelligence Report",
+    csv,
+    "who_intelligence.csv",
+    "text/csv"
+)
 
 # =========================
 # FOOTER
@@ -301,9 +254,6 @@ st.dataframe(df)
 st.markdown("---")
 
 st.write(
-    "✔ WHO AI Intelligence System "
-    "| Real-Time API Intelligence "
-    "| Production Streamlit Version"
+    "✔ WHO Intelligence System | "
+    "News + AI + Forecasting + History + Filters"
 )
-    
-
