@@ -9,27 +9,33 @@ from datetime import datetime
 # CONFIG
 # =========================
 st.set_page_config(
-    page_title="Global WHO Surveillance Network",
+    page_title="WHO AI Production Agent System",
     layout="wide"
 )
 
-st.title("🌍 WHO Global Surveillance Network")
-st.caption("Real-Time Multi-Region Epidemic Intelligence System")
+st.title("🌍 WHO Production AI Surveillance Agent")
+st.caption("AI Agent + Multi-Source Intelligence + Outbreak Reasoning Engine")
 
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 # =========================
-# SURVEILLANCE LAYERS
+# AI SURVEILLANCE AGENT
 # =========================
-REGIONS = {
-    "Africa": ["Ethiopia", "Kenya", "Nigeria", "South Africa"],
-    "Europe": ["Germany", "France", "Italy", "UK"],
-    "Asia": ["India", "China", "Japan", "Indonesia"],
-    "Americas": ["USA", "Brazil", "Canada", "Mexico"]
-}
+def ai_agent_analyze(row):
+
+    risk = row["Risk Score"]
+
+    if risk > 3500:
+        return "🔴 CRITICAL OUTBREAK RISK — Immediate WHO escalation recommended"
+    elif risk > 2500:
+        return "🟠 HIGH ALERT — Regional monitoring required"
+    elif risk > 1500:
+        return "🟡 MEDIUM RISK — Surveillance recommended"
+    else:
+        return "🟢 LOW RISK — Stable conditions"
 
 # =========================
-# DATA INGESTION NODE
+# DATA ENGINE
 # =========================
 @st.cache_data(ttl=180)
 def load_data():
@@ -59,7 +65,6 @@ def load_data():
     except Exception:
         pass
 
-    # fallback node
     return pd.DataFrame({
         "Country": ["Ethiopia", "Kenya", "USA", "India", "Brazil"],
         "Cases": np.random.randint(1000, 5000, 5),
@@ -73,7 +78,7 @@ def load_data():
 df = load_data()
 
 # =========================
-# SURVEILLANCE SIGNAL ENGINE
+# RISK ENGINE
 # =========================
 df["Risk Score"] = (
     df["Cases"] * 0.35 +
@@ -82,113 +87,102 @@ df["Risk Score"] = (
 )
 
 # =========================
-# REGIONAL TAGGING (NETWORK FEATURE)
+# AI AGENT LAYER (CORE UPGRADE)
 # =========================
-def assign_region(country):
-
-    for region, countries in REGIONS.items():
-        if country in countries:
-            return region
-    return "Other"
-
-df["Region"] = df["Country"].apply(assign_region)
+df["AI Agent Report"] = df.apply(ai_agent_analyze, axis=1)
 
 # =========================
-# GLOBAL SIGNAL DETECTION ENGINE
+# SIGNAL DETECTION
 # =========================
 mean = df["Risk Score"].mean()
 std = df["Risk Score"].std() + 1e-6
 
-df["Signal Strength"] = (df["Risk Score"] - mean) / std
-
-df["Alert Level"] = df["Signal Strength"].apply(
-    lambda x: "🔴 CRITICAL" if x > 2
-    else "🟠 HIGH" if x > 1.2
-    else "🟡 MEDIUM" if x > 0.5
-    else "🟢 LOW"
-)
-
-df["Outbreak Signal"] = df["Signal Strength"].abs() > 1.8
+df["Signal"] = (df["Risk Score"] - mean) / std
+df["Outbreak Flag"] = df["Signal"].abs() > 1.8
 
 # =========================
-# FORECASTING NODE (NETWORK LEVEL)
+# FORECAST ENGINE
 # =========================
 df["Forecast Risk"] = df["Risk Score"] * np.random.uniform(0.9, 1.35, len(df))
 
 # =========================
-# GLOBAL NETWORK METRICS
+# METRICS
 # =========================
-st.subheader("🛰️ Global Surveillance Network Status")
-
 col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("Active Nodes", len(df))
-col2.metric("Avg Signal", round(df["Signal Strength"].mean(), 2))
+col1.metric("Countries Monitored", len(df))
+col2.metric("Avg Risk", round(df["Risk Score"].mean(), 2))
 col3.metric("Max Risk", round(df["Risk Score"].max(), 2))
-col4.metric("Outbreak Signals", int(df["Outbreak Signal"].sum()))
+col4.metric("Active Alerts", int(df["Outbreak Flag"].sum()))
 
 # =========================
-# REAL-TIME OUTBREAK SIGNALS
+# AI AGENT OUTPUT (MAIN FEATURE)
 # =========================
-st.subheader("🚨 Global Outbreak Signal Feed")
+st.subheader("🧠 WHO AI Agent Intelligence Layer")
 
-signals = df[df["Outbreak Signal"] == True]
+for _, row in df.iterrows():
 
-if signals.empty:
-    st.success("🟢 No active global outbreak signals")
+    st.info(
+        f"📍 {row['Country']} → "
+        f"{row['AI Agent Report']}"
+    )
+
+# =========================
+# OUTBREAK ALERTS
+# =========================
+st.subheader("🚨 Global Outbreak Alerts")
+
+alerts = df[df["Outbreak Flag"] == True]
+
+if alerts.empty:
+    st.success("🟢 No global critical outbreak signals detected")
 else:
-    for _, row in signals.iterrows():
+    for _, row in alerts.iterrows():
         st.error(
-            f"{row['Country']} ({row['Region']}) → "
-            f"{row['Alert Level']} | "
-            f"Risk: {row['Risk Score']:.2f}"
+            f"{row['Country']} → Risk {row['Risk Score']:.2f}"
         )
 
 # =========================
-# REGIONAL SURVEILLANCE VIEW
+# GLOBAL MAP
 # =========================
-st.subheader("🌍 Regional Intelligence Layers")
+st.subheader("🌍 Global Surveillance Map")
 
-region_summary = df.groupby("Region")["Risk Score"].mean().reset_index()
-
-fig_region = px.bar(
-    region_summary,
-    x="Region",
-    y="Risk Score",
-    title="Regional Risk Distribution"
-)
-
-st.plotly_chart(fig_region, use_container_width=True)
-
-# =========================
-# GLOBAL HEAT MAP
-# =========================
-st.subheader("🌐 Global Risk Heat Map")
-
-fig_map = px.choropleth(
+fig = px.choropleth(
     df,
     locations="Country",
     locationmode="country names",
     color="Risk Score",
     hover_name="Country",
-    title="WHO Surveillance Network Map"
+    title="WHO AI Production Surveillance Map"
 )
 
-st.plotly_chart(fig_map, use_container_width=True)
+st.plotly_chart(fig, use_container_width=True)
 
 # =========================
-# FORECAST LAYER
+# FORECAST
 # =========================
-st.subheader("📈 Predictive Surveillance Layer")
+st.subheader("📈 Predictive Intelligence Layer")
 
 st.bar_chart(df.set_index("Country")["Forecast Risk"])
 
 # =========================
-# NETWORK INTELLIGENCE TABLE
+# INTELLIGENCE TABLE
 # =========================
-st.subheader("📊 Surveillance Data Grid")
+st.subheader("📊 AI Surveillance Data")
 
 st.dataframe(df)
+
+# =========================
+# EXPORT CAPABILITY (PRODUCTION FEATURE)
+# =========================
+csv = df.to_csv(index=False).encode("utf-8")
+
+st.download_button(
+    "⬇ Download WHO Intelligence Report",
+    csv,
+    "who_ai_report.csv",
+    "text/csv"
+)
 
 # =========================
 # FOOTER
@@ -196,6 +190,6 @@ st.dataframe(df)
 st.markdown("---")
 
 st.write(
-    "✔ WHO Global Surveillance Network | "
-    "Multi-Region Monitoring + Signal Detection + Forecasting"
+    "✔ WHO Production AI Agent System | "
+    "Surveillance + Reasoning + Forecasting + Alert Engine"
 )
