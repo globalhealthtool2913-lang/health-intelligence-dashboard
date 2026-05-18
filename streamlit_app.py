@@ -5,13 +5,13 @@ import requests
 import io
 import plotly.express as px
 
-st.set_page_config(page_title="WHO Intelligence System", layout="wide")
+st.set_page_config(page_title="WHO AI Intelligence System", layout="wide")
 
-st.title("🌍 WHO Multi-Source Intelligence System")
-st.caption("Real-time Health + Risk + Early Warning System")
+st.title("🌍 WHO AI Intelligence System (Anomaly Detection)")
+st.caption("Real-time outbreak monitoring + AI anomaly detection")
 
 # =========================
-# SAFE DATA LOADER
+# DATA LOADER
 # =========================
 @st.cache_data(ttl=3600)
 def load_health_data():
@@ -22,10 +22,9 @@ def load_health_data():
         r = requests.get(url, timeout=20)
         df = pd.read_csv(io.StringIO(r.text))
 
-        latest_date = df["date"].max()
-        df = df[df["date"] == latest_date]
+        latest = df[df["date"] == df["date"].max()]
 
-        df = df[[
+        df = latest[[
             "location",
             "total_cases_per_million",
             "total_deaths_per_million",
@@ -35,10 +34,11 @@ def load_health_data():
             "total_cases_per_million": "Cases",
             "total_deaths_per_million": "Deaths",
             "stringency_index": "Policy"
-        })
+        }).dropna()
 
     except Exception:
-        st.warning("⚠️ Live data failed → using fallback dataset")
+
+        st.warning("⚠️ Using fallback dataset")
 
         df = pd.DataFrame({
             "Country": ["Ethiopia", "Kenya", "USA", "India", "Brazil"],
@@ -47,7 +47,7 @@ def load_health_data():
             "Policy": np.random.randint(40, 90, 5)
         })
 
-    return df.dropna()
+    return df
 
 # =========================
 # LOAD DATA
@@ -55,22 +55,25 @@ def load_health_data():
 df = load_health_data()
 
 # =========================
-# VALIDATION (PREVENT ERRORS)
-# =========================
-required_cols = ["Cases", "Deaths", "Policy"]
-
-for col in required_cols:
-    if col not in df.columns:
-        st.error(f"Missing column: {col}")
-        st.stop()
-
-# =========================
 # RISK ENGINE
 # =========================
 df["Risk Score"] = (
-    df["Cases"].astype(float) * 0.3 +
-    df["Deaths"].astype(float) * 0.4 +
-    (100 - df["Policy"].astype(float)) * 0.3
+    df["Cases"] * 0.3 +
+    df["Deaths"] * 0.4 +
+    (100 - df["Policy"]) * 0.3
+)
+
+# =========================
+# 🧠 AI ANOMALY DETECTION ENGINE
+# =========================
+
+mean_risk = df["Risk Score"].mean()
+std_risk = df["Risk Score"].std()
+
+df["Anomaly Score"] = (df["Risk Score"] - mean_risk) / (std_risk + 1e-6)
+
+df["Anomaly Flag"] = df["Anomaly Score"].apply(
+    lambda x: "🚨 ANOMALY" if abs(x) > 1.5 else "OK"
 )
 
 # =========================
@@ -79,25 +82,27 @@ df["Risk Score"] = (
 col1, col2, col3 = st.columns(3)
 
 col1.metric("Countries", len(df))
-col2.metric("Avg Risk", round(df["Risk Score"].mean(), 2))
+col2.metric("Avg Risk", round(mean_risk, 2))
 col3.metric("Max Risk", round(df["Risk Score"].max(), 2))
 
 # =========================
-# ALERT SYSTEM
+# ALERTS
 # =========================
-st.subheader("🚨 Global Alerts")
+st.subheader("🚨 Outbreak Alerts")
 
-threshold = df["Risk Score"].quantile(0.85)
-alerts = df[df["Risk Score"] > threshold]
+alerts = df[df["Anomaly Flag"] == "🚨 ANOMALY"]
 
 if alerts.empty:
-    st.success("🟢 No active outbreak signals")
+    st.success("🟢 No anomaly detected")
 else:
     for _, row in alerts.iterrows():
-        st.error(f"{row['Country']} → Risk {row['Risk Score']:.2f}")
+        st.error(
+            f"{row['Country']} → Risk {row['Risk Score']:.2f} | "
+            f"Anomaly Score: {row['Anomaly Score']:.2f}"
+        )
 
 # =========================
-# GLOBAL MAP
+# MAP
 # =========================
 st.subheader("🌍 Global Risk Map")
 
@@ -106,7 +111,7 @@ fig = px.choropleth(
     locations="Country",
     locationmode="country names",
     color="Risk Score",
-    title="WHO Intelligence Risk Map"
+    title="WHO AI Risk Map with Anomaly Detection"
 )
 
 st.plotly_chart(fig, use_container_width=True)
@@ -114,6 +119,6 @@ st.plotly_chart(fig, use_container_width=True)
 # =========================
 # DATA TABLE
 # =========================
-st.subheader("📊 Intelligence Data")
+st.subheader("📊 Intelligence Table")
 
 st.dataframe(df)
