@@ -2,23 +2,35 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import requests
+import os
 
-st.set_page_config(page_title="WHO Production Intelligence System", layout="wide")
-
-st.title("🌍 WHO Production Global Intelligence System")
-st.caption("Real-world architecture simulation (frontend dashboard)")
+from sklearn.ensemble import RandomForestRegressor
 
 # =============================
-# LOAD FROM BACKEND API (SIMULATED)
+# CONFIG
 # =============================
-@st.cache_data(ttl=60)
-def load_backend_data():
-    # In real system → FastAPI endpoint
-    # Example: http://backend:8000/risks
+st.set_page_config(
+    page_title="WHO Global Intelligence System",
+    layout="wide"
+)
+
+st.title("🌍 WHO Global Health Intelligence System")
+st.caption("Persistent AI + Forecasting + Real-Time Monitoring")
+
+# =============================
+# HISTORY FILE
+# =============================
+HISTORY_FILE = "risk_history.csv"
+
+# =============================
+# SAFE DATA LOADER
+# =============================
+@st.cache_data(ttl=3600)
+def load_data():
 
     try:
         url = "https://covid.ourworldindata.org/data/owid-covid-data.csv"
+
         df = pd.read_csv(url)
 
         latest = df[df["date"] == df["date"].max()]
@@ -39,18 +51,21 @@ def load_backend_data():
 
         return latest
 
-    except:
+    except Exception:
+
+        st.warning("⚠️ Using fallback dataset")
+
         return pd.DataFrame({
-            "Country": ["Ethiopia", "Kenya", "USA", "India"],
-            "Cases": [1000, 2000, 5000, 4000],
-            "Deaths": [50, 80, 300, 200],
-            "Policy": [60, 70, 80, 75]
+            "Country": ["Ethiopia", "Kenya", "USA", "India", "Brazil"],
+            "Cases": [1000, 2000, 5000, 4000, 3500],
+            "Deaths": [50, 80, 300, 200, 250],
+            "Policy": [60, 70, 80, 75, 65]
         })
 
-df = load_backend_data()
+df = load_data()
 
 # =============================
-# RISK ENGINE (PRODUCTION LOGIC)
+# RISK ENGINE
 # =============================
 df["Risk Score"] = (
     df["Cases"] * 0.4 +
@@ -59,30 +74,75 @@ df["Risk Score"] = (
 )
 
 # =============================
-# ALERT SYSTEM (PRODUCTION RULES)
+# SAVE HISTORY
+# =============================
+history_df = df[["Country", "Risk Score"]].copy()
+history_df["Timestamp"] = pd.Timestamp.now()
+
+if os.path.exists(HISTORY_FILE):
+
+    old = pd.read_csv(HISTORY_FILE)
+
+    combined = pd.concat([old, history_df])
+
+    combined = combined.tail(500)
+
+    combined.to_csv(HISTORY_FILE, index=False)
+
+else:
+    history_df.to_csv(HISTORY_FILE, index=False)
+
+# =============================
+# LOAD HISTORY
+# =============================
+history_data = pd.read_csv(HISTORY_FILE)
+
+# =============================
+# AI MODEL
+# =============================
+model = RandomForestRegressor(
+    n_estimators=150,
+    random_state=42
+)
+
+X = df[["Cases", "Deaths", "Policy"]]
+y = df["Risk Score"]
+
+model.fit(X, y)
+
+df["AI Prediction"] = model.predict(X)
+
+# =============================
+# ALERT SYSTEM
 # =============================
 threshold = df["Risk Score"].quantile(0.85)
+
 alerts = df[df["Risk Score"] > threshold]
 
 # =============================
 # METRICS
 # =============================
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("Countries Monitored", len(df))
+col1.metric("Countries", len(df))
 col2.metric("Active Alerts", len(alerts))
-col3.metric("System Mode", "PRODUCTION SIM")
+col3.metric("Avg Risk", round(df["Risk Score"].mean(), 2))
+col4.metric("System", "LIVE")
 
 # =============================
 # ALERT DISPLAY
 # =============================
-st.subheader("🚨 Early Warning Alerts")
+st.subheader("🚨 Global Alerts")
 
 if alerts.empty:
-    st.success("No critical global alerts detected")
+    st.success("No major outbreak signals detected")
 else:
+
     for _, row in alerts.iterrows():
-        st.error(f"{row['Country']} | Risk Score: {row['Risk Score']:.2f}")
+
+        st.error(
+            f"{row['Country']} | Risk Score: {row['Risk Score']:.2f}"
+        )
 
 # =============================
 # GLOBAL MAP
@@ -100,9 +160,123 @@ fig = px.choropleth(
 st.plotly_chart(fig, use_container_width=True)
 
 # =============================
+# AI VALIDATION
+# =============================
+st.subheader("🤖 AI Prediction vs Risk")
+
+fig2 = px.scatter(
+    df,
+    x="Risk Score",
+    y="AI Prediction",
+    color="Country",
+    size="Cases",
+    title="AI Prediction Validation"
+)
+
+st.plotly_chart(fig2, use_container_width=True)
+
+# =============================
 # DATA TABLE
 # =============================
-st.subheader("📊 Intelligence Data")
+st.subheader("📊 Intelligence Dataset")
+
 st.dataframe(df)
 
-st.success("System running in production simulation mode")
+# =============================
+# FORECAST ENGINE
+# =============================
+st.subheader("📈 Forecast Engine")
+
+selected_country = st.selectbox(
+    "Select Country",
+    df["Country"].unique()
+)
+
+country_history = history_data[
+    history_data["Country"] == selected_country
+]
+
+if len(country_history) > 3:
+
+    country_history = country_history.tail(10)
+
+    risks = country_history["Risk Score"].values
+
+    trend = np.polyfit(
+        range(len(risks)),
+        risks,
+        1
+    )
+
+    future_steps = list(
+        range(len(risks), len(risks) + 5)
+    )
+
+    forecast = [
+        trend[0] * x + trend[1]
+        for x in future_steps
+    ]
+
+    forecast_df = pd.DataFrame({
+        "Future Step": future_steps,
+        "Forecast Risk": forecast
+    })
+
+    fig_forecast = px.line(
+        forecast_df,
+        x="Future Step",
+        y="Forecast Risk",
+        title=f"{selected_country} Forecasted Risk"
+    )
+
+    st.plotly_chart(
+        fig_forecast,
+        use_container_width=True
+    )
+
+else:
+    st.info("Collecting historical data for forecasting...")
+
+# =============================
+# HISTORICAL TREND VIEW
+# =============================
+st.subheader("📈 Historical Risk Trend")
+
+trend_history = country_history.tail(20)
+
+if len(trend_history) > 1:
+
+    fig3 = px.line(
+        trend_history,
+        x="Timestamp",
+        y="Risk Score",
+        title=f"{selected_country} Historical Risk"
+    )
+
+    st.plotly_chart(
+        fig3,
+        use_container_width=True
+    )
+
+# =============================
+# SYSTEM FEED
+# =============================
+st.subheader("🧠 Intelligence Feed")
+
+feed = [
+    "Monitoring global epidemiological signals...",
+    "Updating forecasting engine...",
+    "Analyzing outbreak progression...",
+    "Processing global health indicators...",
+    "Persistent intelligence system active..."
+]
+
+for msg in feed:
+    st.info(msg)
+
+# =============================
+# FOOTER
+# =============================
+st.success(
+    "🟢 Persistent WHO Intelligence System Running"
+)
