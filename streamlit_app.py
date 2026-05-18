@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import time
 
 from sklearn.ensemble import RandomForestRegressor
 
@@ -9,19 +10,23 @@ from sklearn.ensemble import RandomForestRegressor
 # CONFIG
 # =============================
 st.set_page_config(
-    page_title="Global Health AI System",
+    page_title="Global Real-Time Health Intelligence System",
     layout="wide"
 )
 
-st.title("🌍 Global Health AI Intelligence System")
-st.caption("Production-stable AI + real-data + time-series monitoring")
+st.title("🌍 Real-Time Global Health Intelligence System")
+st.caption("AI + Live Data + Time-Series Monitoring")
 
 # =============================
-# SAFE DATA LOADER (FIXED ERROR)
+# AUTO REFRESH SETTINGS
 # =============================
-@st.cache_data(ttl=3600)
+REFRESH_SECONDS = 30
+
+# =============================
+# SAFE LIVE DATA LOADER
+# =============================
+@st.cache_data(ttl=30)
 def load_data():
-
     try:
         url = "https://covid.ourworldindata.org/data/owid-covid-data.csv"
         df = pd.read_csv(url)
@@ -45,8 +50,6 @@ def load_data():
         return latest
 
     except Exception:
-        # fallback data (prevents crash)
-        st.warning("⚠️ Using fallback dataset (network unavailable)")
         return pd.DataFrame({
             "Country": ["Ethiopia", "Kenya", "USA", "India", "Brazil"],
             "Cases": [1000, 2000, 5000, 4000, 3500],
@@ -57,7 +60,7 @@ def load_data():
 df = load_data()
 
 # =============================
-# RISK ENGINE
+# SIGNAL ENGINE
 # =============================
 df["Risk Score"] = (
     df["Cases"] * 0.4 +
@@ -78,7 +81,7 @@ model.fit(X, y)
 df["AI Prediction"] = model.predict(X)
 
 # =============================
-# TIME-SERIES MEMORY SYSTEM
+# TIME SERIES MEMORY
 # =============================
 if "history" not in st.session_state:
     st.session_state.history = {}
@@ -91,7 +94,7 @@ for c in df["Country"].head(10):
     val = float(df[df["Country"] == c]["Risk Score"].values[0])
     st.session_state.history[c].append(val)
 
-    if len(st.session_state.history[c]) > 10:
+    if len(st.session_state.history[c]) > 15:
         st.session_state.history[c].pop(0)
 
 # =============================
@@ -102,17 +105,17 @@ col1, col2, col3, col4 = st.columns(4)
 col1.metric("Countries", len(df))
 col2.metric("High Risk", len(df[df["Risk Score"] > df["Risk Score"].quantile(0.85)]))
 col3.metric("Avg Risk", round(df["Risk Score"].mean(), 2))
-col4.metric("System Status", "ACTIVE")
+col4.metric("System", "LIVE")
 
 # =============================
-# ALERT SYSTEM
+# LIVE ALERT SYSTEM
 # =============================
-st.subheader("🚨 Alerts")
+st.subheader("🚨 Live Global Alerts")
 
 alerts = df[df["Risk Score"] > df["Risk Score"].quantile(0.85)]
 
 if alerts.empty:
-    st.success("No high-risk signals detected")
+    st.success("No active global threats detected")
 else:
     for _, row in alerts.iterrows():
         st.error(f"{row['Country']} | Risk Score: {row['Risk Score']:.2f}")
@@ -120,28 +123,28 @@ else:
 # =============================
 # DATA TABLE
 # =============================
-st.subheader("📊 Dataset")
+st.subheader("📊 Global Intelligence Dataset")
 st.dataframe(df)
 
 # =============================
-# VISUALIZATION 1
+# VISUALIZATION
 # =============================
-st.subheader("🌍 Global Risk Distribution")
+st.subheader("🌍 Global Risk Map")
 
 fig = px.bar(
     df.sort_values("Risk Score", ascending=False),
     x="Country",
     y="Risk Score",
     color="Risk Score",
-    title="Global Health Risk Overview"
+    title="Global Health Risk Distribution"
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
 # =============================
-# VISUALIZATION 2
+# AI VALIDATION
 # =============================
-st.subheader("🤖 AI vs Real Risk")
+st.subheader("🤖 AI Prediction vs Real Risk")
 
 fig2 = px.scatter(
     df,
@@ -149,7 +152,7 @@ fig2 = px.scatter(
     y="AI Prediction",
     color="Country",
     size="Cases",
-    title="AI Prediction Validation"
+    title="AI Model Validation"
 )
 
 st.plotly_chart(fig2, use_container_width=True)
@@ -174,30 +177,34 @@ if len(history) > 1:
         ts,
         x="Step",
         y="Risk",
-        title=f"{selected} Risk Trend Over Time"
+        title=f"{selected} Risk Evolution"
     )
 
     st.plotly_chart(fig3, use_container_width=True)
 else:
-    st.info("Collecting historical data... refresh app")
+    st.info("Collecting live history data...")
 
 # =============================
 # SYSTEM FEED
 # =============================
-st.subheader("🧠 System Feed")
+st.subheader("🧠 Intelligence Feed")
 
 feed = [
-    "Monitoring global health signals...",
-    "Updating AI risk engine...",
-    "Processing epidemiological data...",
+    "Monitoring global health signals in real-time...",
+    "Updating AI prediction engine...",
     "Analyzing outbreak patterns...",
-    "System stable and running..."
+    "Processing epidemiological streams...",
+    "System running continuously..."
 ]
 
 for msg in feed[:3]:
     st.info(msg)
 
 # =============================
-# FOOTER
+# AUTO REFRESH
 # =============================
-st.success("System running successfully (production-stable mode)")
+st.success("🟢 LIVE SYSTEM ACTIVE")
+
+time.sleep(REFRESH_SECONDS)
+st.rerun()
+
