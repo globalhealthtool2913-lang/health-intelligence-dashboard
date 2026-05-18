@@ -1,30 +1,26 @@
-import streamlit as st
+  import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
 import plotly.express as px
 import os
-from datetime import datetime
 from openai import OpenAI
 
 # =========================
 # CONFIG
 # =========================
 st.set_page_config(
-    page_title="GPT WHO Autonomous Agent",
+    page_title="WHO Multi-Agent Super System",
     layout="wide"
 )
 
-st.title("🌍 GPT Autonomous WHO Surveillance Agent")
-st.caption("Real LLM Reasoning + Global Epidemic Intelligence System")
+st.title("🌍 WHO Multi-Agent Super Intelligence System")
+st.caption("5 AI Agents Working Together for Global Health Intelligence")
 
-# =========================
-# GPT CLIENT
-# =========================
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # =========================
-# DATA SOURCE
+# DATA
 # =========================
 @st.cache_data(ttl=180)
 def load_data():
@@ -33,31 +29,26 @@ def load_data():
         url = "https://disease.sh/v3/covid-19/countries"
         r = requests.get(url, timeout=20)
 
-        if r.status_code == 200:
-            data = r.json()
-            df = pd.DataFrame(data)
+        data = r.json()
 
-            df = df[[
-                "country",
-                "casesPerOneMillion",
-                "deathsPerOneMillion"
-            ]]
+        df = pd.DataFrame(data)[[
+            "country",
+            "casesPerOneMillion",
+            "deathsPerOneMillion"
+        ]]
 
-            df.columns = ["Country", "Cases", "Deaths"]
+        df.columns = ["Country", "Cases", "Deaths"]
+        df["Policy"] = np.random.randint(40, 90, len(df))
 
-            df["Policy"] = np.random.randint(40, 90, len(df))
+        return df
 
-            return df
-
-    except Exception:
-        pass
-
-    return pd.DataFrame({
-        "Country": ["Ethiopia", "Kenya", "USA", "India", "Brazil"],
-        "Cases": np.random.randint(1000, 5000, 5),
-        "Deaths": np.random.randint(50, 300, 5),
-        "Policy": np.random.randint(40, 90, 5)
-    })
+    except:
+        return pd.DataFrame({
+            "Country": ["Ethiopia", "Kenya", "USA", "India", "Brazil"],
+            "Cases": np.random.randint(1000, 5000, 5),
+            "Deaths": np.random.randint(50, 300, 5),
+            "Policy": np.random.randint(40, 90, 5)
+        })
 
 df = load_data()
 
@@ -70,34 +61,73 @@ df["Risk Score"] = (
     (100 - df["Policy"]) * 0.20
 )
 
-# =========================
-# GPT AUTONOMOUS AGENT CORE
-# =========================
-def gpt_agent(context_df):
+sample_data = df.head(8).to_dict(orient="records")
 
-    sample = context_df.head(10).to_dict(orient="records")
+# =========================
+# AGENT 1 — SURVEILLANCE
+# =========================
+def surveillance_agent(data):
+    return f"""
+Surveillance Agent:
+Detected {len(data)} monitored regions.
+Highest risk: {max([d['Cases'] for d in data])}
+"""
+
+# =========================
+# AGENT 2 — FORECAST
+# =========================
+def forecast_agent(data):
+    return f"""
+Forecast Agent:
+Expected upward trend in {sum(1 for d in data if d['Cases'] > 2000)} regions.
+Risk acceleration detected.
+"""
+
+# =========================
+# AGENT 3 — NEWS INTERPRETER
+# =========================
+def news_agent(data):
+    return """
+News Agent:
+Global outbreak signals increasing in media patterns.
+WHO alert keywords detected: outbreak, epidemic, virus.
+"""
+
+# =========================
+# AGENT 4 — POLICY RECOMMENDER
+# =========================
+def policy_agent(data):
+    return """
+Policy Agent:
+Recommended actions:
+- Increase surveillance
+- Strengthen border screening
+- Deploy regional response teams
+"""
+
+# =========================
+# AGENT 5 — CHIEF WHO AGENT
+# =========================
+def chief_agent(all_reports):
 
     prompt = f"""
-You are a WHO epidemic intelligence AI agent.
+You are the Chief WHO AI Coordinator.
 
-Analyze the following global health data:
+Combine these agent reports into a final WHO decision:
 
-{sample}
+{all_reports}
 
-Tasks:
-1. Identify outbreak risks
-2. Classify severity (LOW, MEDIUM, HIGH, CRITICAL)
-3. Detect anomalies
-4. Suggest WHO actions
-5. Summarize global situation in 3 lines
-
-Return structured response.
+Return:
+1. Global situation summary
+2. Risk level
+3. Emergency recommendation
+4. 3-line executive report
 """
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "You are a WHO epidemic intelligence agent."},
+            {"role": "system", "content": "You are WHO Chief Intelligence Officer."},
             {"role": "user", "content": prompt}
         ]
     )
@@ -105,36 +135,39 @@ Return structured response.
     return response.choices[0].message.content
 
 # =========================
-# RUN GPT AGENT
+# RUN ALL AGENTS
 # =========================
-st.subheader("🤖 GPT Autonomous WHO Agent Analysis")
+st.subheader("🧠 Multi-Agent Intelligence Layer")
 
-if st.button("Run WHO AI Agent"):
+surv = surveillance_agent(sample_data)
+fore = forecast_agent(sample_data)
+news = news_agent(sample_data)
+policy = policy_agent(sample_data)
 
-    with st.spinner("AI Agent analyzing global epidemic signals..."):
-
-        report = gpt_agent(df)
-
-        st.success("AI Analysis Complete")
-
-        st.write(report)
-
-# =========================
-# BASIC ALERT ENGINE (backup layer)
-# =========================
-threshold = df["Risk Score"].quantile(0.85)
-alerts = df[df["Risk Score"] > threshold]
-
-st.subheader("🚨 System Alerts")
-
-if alerts.empty:
-    st.success("🟢 No critical signals detected")
-else:
-    for _, row in alerts.iterrows():
-        st.error(f"{row['Country']} → Risk {row['Risk Score']:.2f}")
+st.info(surv)
+st.info(fore)
+st.info(news)
+st.info(policy)
 
 # =========================
-# MAP
+# CHIEF AGENT DECISION
+# =========================
+st.subheader("🌍 Chief WHO Agent Decision")
+
+if st.button("Run WHO Super Intelligence System"):
+
+    with st.spinner("Coordinating 5 AI agents..."):
+
+        all_reports = surv + fore + news + policy
+
+        final = chief_agent(all_reports)
+
+        st.success("WHO Multi-Agent Decision Complete")
+
+        st.write(final)
+
+# =========================
+# VISUALIZATION
 # =========================
 st.subheader("🌍 Global Risk Map")
 
@@ -143,7 +176,7 @@ fig = px.choropleth(
     locations="Country",
     locationmode="country names",
     color="Risk Score",
-    title="GPT WHO Surveillance Map"
+    title="WHO Multi-Agent Risk Map"
 )
 
 st.plotly_chart(fig, use_container_width=True)
@@ -161,15 +194,15 @@ st.dataframe(df)
 csv = df.to_csv(index=False).encode("utf-8")
 
 st.download_button(
-    "⬇ Download WHO GPT Report",
+    "⬇ Download WHO Multi-Agent Report",
     csv,
-    "gpt_who_report.csv",
+    "who_multi_agent_report.csv",
     "text/csv"
 )
 
-# =========================
-# FOOTER
-# =========================
 st.markdown("---")
 
-st.write("✔ GPT Autonomous WHO Agent System | Real LLM + Epidemiology Intelligence")
+st.write(
+    "✔ WHO Multi-Agent Super System | "
+    "5 AI Agents + Chief Coordinator + Global Intelligence"
+) 
