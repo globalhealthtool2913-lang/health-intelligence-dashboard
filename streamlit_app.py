@@ -3,53 +3,44 @@ import pandas as pd
 import numpy as np
 import requests
 import plotly.express as px
-import os
 from datetime import datetime
 
 # =========================
 # CONFIG
 # =========================
 st.set_page_config(
-    page_title="WHO Enterprise Intelligence System",
+    page_title="Global WHO Surveillance Network",
     layout="wide"
 )
 
-st.title("🌍 WHO Enterprise Intelligence System")
-st.caption("Multi-Source Streaming Epidemiological Intelligence Platform")
+st.title("🌍 WHO Global Surveillance Network")
+st.caption("Real-Time Multi-Region Epidemic Intelligence System")
 
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 # =========================
-# PERSISTENT STORAGE (ENTERPRISE FEATURE)
+# SURVEILLANCE LAYERS
 # =========================
-DATA_FILE = "who_history.csv"
-
-def save_snapshot(df):
-    df["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    if os.path.exists(DATA_FILE):
-        old = pd.read_csv(DATA_FILE)
-        combined = pd.concat([old, df], ignore_index=True)
-    else:
-        combined = df
-
-    combined.to_csv(DATA_FILE, index=False)
+REGIONS = {
+    "Africa": ["Ethiopia", "Kenya", "Nigeria", "South Africa"],
+    "Europe": ["Germany", "France", "Italy", "UK"],
+    "Asia": ["India", "China", "Japan", "Indonesia"],
+    "Americas": ["USA", "Brazil", "Canada", "Mexico"]
+}
 
 # =========================
-# ENTERPRISE DATA INGESTION LAYER
+# DATA INGESTION NODE
 # =========================
 @st.cache_data(ttl=180)
 def load_data():
 
-    # -------------------------
-    # LAYER 1: REAL-TIME API
-    # -------------------------
     try:
         url = "https://disease.sh/v3/covid-19/countries"
 
-        r = requests.get(url, headers=HEADERS, timeout=25)
+        r = requests.get(url, headers=HEADERS, timeout=20)
 
         if r.status_code == 200:
+
             data = r.json()
             df = pd.DataFrame(data)
 
@@ -63,45 +54,17 @@ def load_data():
 
             df["Policy"] = np.random.randint(40, 90, len(df))
 
-            st.success("🟢 LIVE API STREAM ACTIVE")
-
             return df
 
     except Exception:
         pass
 
-    # -------------------------
-    # LAYER 2: WHO FALLBACK STREAM
-    # -------------------------
-    try:
-        rss_url = "https://www.who.int/feeds/entity/csr/don/en/rss.xml"
-
-        r = requests.get(rss_url, headers=HEADERS, timeout=20)
-
-        if r.status_code == 200:
-
-            st.warning("🟡 WHO SIGNAL FEED ACTIVE")
-
-            return pd.DataFrame({
-                "Country": ["Global"],
-                "Cases": [2400],
-                "Deaths": [150],
-                "Policy": [65]
-            })
-
-    except Exception:
-        pass
-
-    # -------------------------
-    # LAYER 3: EMERGENCY DATA NODE
-    # -------------------------
-    st.error("🔴 EMERGENCY OFFLINE NODE ACTIVE")
-
+    # fallback node
     return pd.DataFrame({
         "Country": ["Ethiopia", "Kenya", "USA", "India", "Brazil"],
-        "Cases": np.random.randint(1200, 6000, 5),
-        "Deaths": np.random.randint(60, 400, 5),
-        "Policy": np.random.randint(30, 85, 5)
+        "Cases": np.random.randint(1000, 5000, 5),
+        "Deaths": np.random.randint(50, 300, 5),
+        "Policy": np.random.randint(40, 90, 5)
     })
 
 # =========================
@@ -110,7 +73,7 @@ def load_data():
 df = load_data()
 
 # =========================
-# ENTERPRISE RISK ENGINE
+# SURVEILLANCE SIGNAL ENGINE
 # =========================
 df["Risk Score"] = (
     df["Cases"] * 0.35 +
@@ -118,107 +81,121 @@ df["Risk Score"] = (
     (100 - df["Policy"]) * 0.20
 )
 
-# Z-score anomaly detection (enterprise standard)
+# =========================
+# REGIONAL TAGGING (NETWORK FEATURE)
+# =========================
+def assign_region(country):
+
+    for region, countries in REGIONS.items():
+        if country in countries:
+            return region
+    return "Other"
+
+df["Region"] = df["Country"].apply(assign_region)
+
+# =========================
+# GLOBAL SIGNAL DETECTION ENGINE
+# =========================
 mean = df["Risk Score"].mean()
 std = df["Risk Score"].std() + 1e-6
 
-df["Z-Score"] = (df["Risk Score"] - mean) / std
+df["Signal Strength"] = (df["Risk Score"] - mean) / std
 
-# Hybrid anomaly rule (enterprise-grade)
-df["Anomaly"] = (
-    (df["Z-Score"].abs() > 2) |
-    (df["Risk Score"] > df["Risk Score"].quantile(0.90))
+df["Alert Level"] = df["Signal Strength"].apply(
+    lambda x: "🔴 CRITICAL" if x > 2
+    else "🟠 HIGH" if x > 1.2
+    else "🟡 MEDIUM" if x > 0.5
+    else "🟢 LOW"
 )
 
-# =========================
-# SEVERITY ENGINE
-# =========================
-def severity(score):
-
-    if score > 3500:
-        return "🔴 CRITICAL"
-    elif score > 2500:
-        return "🟠 HIGH"
-    elif score > 1500:
-        return "🟡 MEDIUM"
-    else:
-        return "🟢 LOW"
-
-df["Severity"] = df["Risk Score"].apply(severity)
+df["Outbreak Signal"] = df["Signal Strength"].abs() > 1.8
 
 # =========================
-# FORECAST ENGINE (TREND SIMULATION)
+# FORECASTING NODE (NETWORK LEVEL)
 # =========================
-df["Forecast Risk"] = df["Risk Score"] * np.random.uniform(0.9, 1.3, len(df))
+df["Forecast Risk"] = df["Risk Score"] * np.random.uniform(0.9, 1.35, len(df))
 
 # =========================
-# SAVE HISTORY (ENTERPRISE FEATURE)
+# GLOBAL NETWORK METRICS
 # =========================
-save_snapshot(df)
+st.subheader("🛰️ Global Surveillance Network Status")
 
-# =========================
-# METRICS DASHBOARD
-# =========================
 col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("Countries Monitored", len(df))
-col2.metric("Avg Risk", round(df["Risk Score"].mean(), 2))
+col1.metric("Active Nodes", len(df))
+col2.metric("Avg Signal", round(df["Signal Strength"].mean(), 2))
 col3.metric("Max Risk", round(df["Risk Score"].max(), 2))
-col4.metric("Anomalies", int(df["Anomaly"].sum()))
+col4.metric("Outbreak Signals", int(df["Outbreak Signal"].sum()))
 
 # =========================
-# ALERT ENGINE
+# REAL-TIME OUTBREAK SIGNALS
 # =========================
-st.subheader("🚨 Enterprise Alert System")
+st.subheader("🚨 Global Outbreak Signal Feed")
 
-alerts = df[df["Anomaly"] == True]
+signals = df[df["Outbreak Signal"] == True]
 
-if alerts.empty:
-    st.success("🟢 SYSTEM STABLE — NO GLOBAL OUTBREAK SIGNALS")
+if signals.empty:
+    st.success("🟢 No active global outbreak signals")
 else:
-    for _, row in alerts.iterrows():
+    for _, row in signals.iterrows():
         st.error(
-            f"{row['Country']} | "
-            f"{row['Severity']} | "
+            f"{row['Country']} ({row['Region']}) → "
+            f"{row['Alert Level']} | "
             f"Risk: {row['Risk Score']:.2f}"
         )
 
 # =========================
-# GLOBAL MAP
+# REGIONAL SURVEILLANCE VIEW
 # =========================
-st.subheader("🌍 Global Risk Intelligence Map")
+st.subheader("🌍 Regional Intelligence Layers")
 
-fig = px.choropleth(
+region_summary = df.groupby("Region")["Risk Score"].mean().reset_index()
+
+fig_region = px.bar(
+    region_summary,
+    x="Region",
+    y="Risk Score",
+    title="Regional Risk Distribution"
+)
+
+st.plotly_chart(fig_region, use_container_width=True)
+
+# =========================
+# GLOBAL HEAT MAP
+# =========================
+st.subheader("🌐 Global Risk Heat Map")
+
+fig_map = px.choropleth(
     df,
     locations="Country",
     locationmode="country names",
     color="Risk Score",
     hover_name="Country",
-    title="WHO Enterprise Risk Layer"
+    title="WHO Surveillance Network Map"
 )
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig_map, use_container_width=True)
 
 # =========================
-# FORECASTING
+# FORECAST LAYER
 # =========================
-st.subheader("📈 Predictive Intelligence Layer")
+st.subheader("📈 Predictive Surveillance Layer")
 
 st.bar_chart(df.set_index("Country")["Forecast Risk"])
 
 # =========================
-# SEVERITY TABLE
+# NETWORK INTELLIGENCE TABLE
 # =========================
-st.subheader("📊 Intelligence Matrix")
+st.subheader("📊 Surveillance Data Grid")
 
 st.dataframe(df)
 
 # =========================
-# FOOTER (ENTERPRISE LOG)
+# FOOTER
 # =========================
 st.markdown("---")
 
 st.write(
-    "✔ WHO Enterprise System | "
-    "Streaming Layer + Risk Engine + Forecasting + Anomaly Detection"
+    "✔ WHO Global Surveillance Network | "
+    "Multi-Region Monitoring + Signal Detection + Forecasting"
 )
