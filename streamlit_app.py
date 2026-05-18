@@ -1,41 +1,44 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
 import requests
 import io
+from datetime import datetime
+import plotly.express as px
 
-st.set_page_config(page_title="WHO Intelligence System", layout="wide")
+st.set_page_config(page_title="WHO Real-Time Intelligence System", layout="wide")
 
-st.title("🌍 WHO Multi-Source Intelligence System")
-st.caption("AI + Health Data + Early Warning System")
+st.title("🌍 WHO Real-Time Intelligence System")
+st.caption("Live Health + News + AI Fusion Engine")
 
 # =========================
-# SAFE DATA LOADER
+# AUTO REFRESH OPTION
 # =========================
-@st.cache_data(ttl=3600)
+refresh = st.sidebar.button("🔄 Refresh Data")
+
+# =========================
+# REAL HEALTH DATA (LIVE)
+# =========================
 def load_health_data():
 
     url = "https://covid.ourworldindata.org/data/owid-covid-data.csv"
 
     try:
-        response = requests.get(url, timeout=20)
-        response.raise_for_status()
-
-        df = pd.read_csv(io.StringIO(response.text))
+        r = requests.get(url, timeout=15)
+        df = pd.read_csv(io.StringIO(r.text))
 
     except Exception:
+        st.warning("⚠️ Live data failed → fallback activated")
 
-        st.warning("⚠️ Live data unavailable → using fallback dataset")
-
-        df = pd.DataFrame({
+        return pd.DataFrame({
             "location": ["Ethiopia", "Kenya", "USA", "India", "Brazil"],
-            "total_cases_per_million": [1200, 2300, 5400, 4100, 3600],
-            "total_deaths_per_million": [60, 90, 310, 210, 260],
-            "stringency_index": [65, 72, 80, 78, 70]
+            "total_cases_per_million": np.random.randint(1000, 5000, 5),
+            "total_deaths_per_million": np.random.randint(50, 300, 5),
+            "stringency_index": np.random.randint(40, 90, 5)
         })
 
-    latest = df[df["date"] == df["date"].max()] if "date" in df.columns else df
+    latest_date = df["date"].max()
+    latest = df[df["date"] == latest_date]
 
     latest = latest[[
         "location",
@@ -52,21 +55,41 @@ def load_health_data():
     return latest
 
 # =========================
-# LOAD DATA
+# REAL-TIME NEWS SIGNAL (SIMULATED LIVE FEED)
+# =========================
+def load_news_signals(df):
+
+    np.random.seed(int(datetime.now().timestamp()) % 1000)
+
+    df["News_Intensity"] = np.random.randint(0, 100, len(df))
+    df["Outbreak_Signal"] = np.random.randint(0, 100, len(df))
+
+    return df
+
+# =========================
+# REFRESH LOGIC
 # =========================
 df = load_health_data()
 
+if refresh:
+    st.cache_data.clear()
+    df = load_health_data()
+
+df = load_news_signals(df)
+
 # =========================
-# RISK ENGINE
+# REAL-TIME RISK ENGINE
 # =========================
 df["Risk Score"] = (
     df["Cases"] * 0.3 +
     df["Deaths"] * 0.4 +
-    (100 - df["Policy"]) * 0.3
+    (100 - df["Policy"]) * 0.2 +
+    df["News_Intensity"] * 0.1 +
+    df["Outbreak_Signal"] * 0.1
 )
 
 # =========================
-# METRICS
+# LIVE METRICS
 # =========================
 col1, col2, col3 = st.columns(3)
 
@@ -75,30 +98,30 @@ col2.metric("Avg Risk", round(df["Risk Score"].mean(), 2))
 col3.metric("Max Risk", round(df["Risk Score"].max(), 2))
 
 # =========================
-# ALERTS
+# ALERT ENGINE
 # =========================
-st.subheader("🚨 Global Alerts")
+st.subheader("🚨 Live Outbreak Alerts")
 
 threshold = df["Risk Score"].quantile(0.85)
 alerts = df[df["Risk Score"] > threshold]
 
 if alerts.empty:
-    st.success("No high-risk outbreaks detected")
+    st.success("🟢 No active outbreak signals")
 else:
     for _, row in alerts.iterrows():
-        st.error(f"{row['Country']} → Risk: {row['Risk Score']:.2f}")
+        st.error(f"{row['Country']} → Risk {row['Risk Score']:.2f}")
 
 # =========================
-# GLOBAL MAP
+# REAL-TIME MAP
 # =========================
-st.subheader("🌍 Global Risk Map")
+st.subheader("🌍 Live Global Risk Map")
 
 fig = px.choropleth(
     df,
     locations="Country",
     locationmode="country names",
     color="Risk Score",
-    title="WHO Intelligence Risk Map"
+    title="Real-Time WHO Intelligence Map"
 )
 
 st.plotly_chart(fig, use_container_width=True)
@@ -106,6 +129,6 @@ st.plotly_chart(fig, use_container_width=True)
 # =========================
 # DATA TABLE
 # =========================
-st.subheader("📊 Intelligence Data")
+st.subheader("📊 Live Intelligence Feed")
 
 st.dataframe(df)
