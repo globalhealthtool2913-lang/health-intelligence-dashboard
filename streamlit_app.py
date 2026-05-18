@@ -3,93 +3,78 @@ import pandas as pd
 import numpy as np
 import requests
 import io
-from datetime import datetime
 import plotly.express as px
 
-st.set_page_config(page_title="WHO Real-Time Intelligence System", layout="wide")
+st.set_page_config(page_title="WHO Intelligence System", layout="wide")
 
-st.title("🌍 WHO Real-Time Intelligence System")
-st.caption("Live Health + News + AI Fusion Engine")
-
-# =========================
-# AUTO REFRESH OPTION
-# =========================
-refresh = st.sidebar.button("🔄 Refresh Data")
+st.title("🌍 WHO Multi-Source Intelligence System")
+st.caption("Real-time Health + Risk + Early Warning System")
 
 # =========================
-# REAL HEALTH DATA (LIVE)
+# SAFE DATA LOADER
 # =========================
+@st.cache_data(ttl=3600)
 def load_health_data():
 
     url = "https://covid.ourworldindata.org/data/owid-covid-data.csv"
 
     try:
-        r = requests.get(url, timeout=15)
+        r = requests.get(url, timeout=20)
         df = pd.read_csv(io.StringIO(r.text))
 
-    except Exception:
-        st.warning("⚠️ Live data failed → fallback activated")
+        latest_date = df["date"].max()
+        df = df[df["date"] == latest_date]
 
-        return pd.DataFrame({
-            "location": ["Ethiopia", "Kenya", "USA", "India", "Brazil"],
-            "total_cases_per_million": np.random.randint(1000, 5000, 5),
-            "total_deaths_per_million": np.random.randint(50, 300, 5),
-            "stringency_index": np.random.randint(40, 90, 5)
+        df = df[[
+            "location",
+            "total_cases_per_million",
+            "total_deaths_per_million",
+            "stringency_index"
+        ]].rename(columns={
+            "location": "Country",
+            "total_cases_per_million": "Cases",
+            "total_deaths_per_million": "Deaths",
+            "stringency_index": "Policy"
         })
 
-    latest_date = df["date"].max()
-    latest = df[df["date"] == latest_date]
+    except Exception:
+        st.warning("⚠️ Live data failed → using fallback dataset")
 
-    latest = latest[[
-        "location",
-        "total_cases_per_million",
-        "total_deaths_per_million",
-        "stringency_index"
-    ]].rename(columns={
-        "location": "Country",
-        "total_cases_per_million": "Cases",
-        "total_deaths_per_million": "Deaths",
-        "stringency_index": "Policy"
-    }).dropna()
+        df = pd.DataFrame({
+            "Country": ["Ethiopia", "Kenya", "USA", "India", "Brazil"],
+            "Cases": np.random.randint(1000, 5000, 5),
+            "Deaths": np.random.randint(50, 300, 5),
+            "Policy": np.random.randint(40, 90, 5)
+        })
 
-    return latest
+    return df.dropna()
 
 # =========================
-# REAL-TIME NEWS SIGNAL (SIMULATED LIVE FEED)
-# =========================
-def load_news_signals(df):
-
-    np.random.seed(int(datetime.now().timestamp()) % 1000)
-
-    df["News_Intensity"] = np.random.randint(0, 100, len(df))
-    df["Outbreak_Signal"] = np.random.randint(0, 100, len(df))
-
-    return df
-
-# =========================
-# REFRESH LOGIC
+# LOAD DATA
 # =========================
 df = load_health_data()
 
-if refresh:
-    st.cache_data.clear()
-    df = load_health_data()
+# =========================
+# VALIDATION (PREVENT ERRORS)
+# =========================
+required_cols = ["Cases", "Deaths", "Policy"]
 
-df = load_news_signals(df)
+for col in required_cols:
+    if col not in df.columns:
+        st.error(f"Missing column: {col}")
+        st.stop()
 
 # =========================
-# REAL-TIME RISK ENGINE
+# RISK ENGINE
 # =========================
 df["Risk Score"] = (
-    df["Cases"] * 0.3 +
-    df["Deaths"] * 0.4 +
-    (100 - df["Policy"]) * 0.2 +
-    df["News_Intensity"] * 0.1 +
-    df["Outbreak_Signal"] * 0.1
+    df["Cases"].astype(float) * 0.3 +
+    df["Deaths"].astype(float) * 0.4 +
+    (100 - df["Policy"].astype(float)) * 0.3
 )
 
 # =========================
-# LIVE METRICS
+# METRICS
 # =========================
 col1, col2, col3 = st.columns(3)
 
@@ -98,9 +83,9 @@ col2.metric("Avg Risk", round(df["Risk Score"].mean(), 2))
 col3.metric("Max Risk", round(df["Risk Score"].max(), 2))
 
 # =========================
-# ALERT ENGINE
+# ALERT SYSTEM
 # =========================
-st.subheader("🚨 Live Outbreak Alerts")
+st.subheader("🚨 Global Alerts")
 
 threshold = df["Risk Score"].quantile(0.85)
 alerts = df[df["Risk Score"] > threshold]
@@ -112,16 +97,16 @@ else:
         st.error(f"{row['Country']} → Risk {row['Risk Score']:.2f}")
 
 # =========================
-# REAL-TIME MAP
+# GLOBAL MAP
 # =========================
-st.subheader("🌍 Live Global Risk Map")
+st.subheader("🌍 Global Risk Map")
 
 fig = px.choropleth(
     df,
     locations="Country",
     locationmode="country names",
     color="Risk Score",
-    title="Real-Time WHO Intelligence Map"
+    title="WHO Intelligence Risk Map"
 )
 
 st.plotly_chart(fig, use_container_width=True)
@@ -129,6 +114,6 @@ st.plotly_chart(fig, use_container_width=True)
 # =========================
 # DATA TABLE
 # =========================
-st.subheader("📊 Live Intelligence Feed")
+st.subheader("📊 Intelligence Data")
 
 st.dataframe(df)
