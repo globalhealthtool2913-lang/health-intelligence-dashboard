@@ -4,6 +4,7 @@ import numpy as np
 import requests
 import io
 import plotly.express as px
+from datetime import datetime
 
 # =========================
 # PAGE CONFIG
@@ -24,6 +25,13 @@ st.caption(
 st.markdown("🔴 LIVE SYSTEM ACTIVE")
 
 # =========================
+# REQUEST HEADERS
+# =========================
+HEADERS = {
+    "User-Agent": "Mozilla/5.0"
+}
+
+# =========================
 # MULTI-SOURCE DATA ENGINE
 # =========================
 @st.cache_data(ttl=300)
@@ -34,9 +42,16 @@ def load_data():
     # =========================
     try:
 
-        url = "https://covid.ourworldindata.org/data/owid-covid-data.csv"
+        url = (
+            "https://covid.ourworldindata.org/"
+            "data/owid-covid-data.csv"
+        )
 
-        r = requests.get(url, timeout=20)
+        r = requests.get(
+            url,
+            headers=HEADERS,
+            timeout=30
+        )
 
         if r.status_code == 200:
 
@@ -51,7 +66,9 @@ def load_data():
                 "total_cases_per_million",
                 "total_deaths_per_million",
                 "stringency_index"
-            ]].rename(columns={
+            ]]
+
+            df = df.rename(columns={
                 "location": "Country",
                 "total_cases_per_million": "Cases",
                 "total_deaths_per_million": "Deaths",
@@ -72,9 +89,16 @@ def load_data():
     # =========================
     try:
 
-        rss_url = "https://www.who.int/feeds/entity/csr/don/en/rss.xml"
+        rss_url = (
+            "https://www.who.int/feeds/"
+            "entity/csr/don/en/rss.xml"
+        )
 
-        r = requests.get(rss_url, timeout=10)
+        r = requests.get(
+            rss_url,
+            headers=HEADERS,
+            timeout=20
+        )
 
         if r.status_code == 200:
 
@@ -99,6 +123,10 @@ def load_data():
     # =========================
     st.error(
         "🔴 Live sources unavailable → Local backup mode"
+    )
+
+    np.random.seed(
+        int(datetime.now().strftime("%H"))
     )
 
     df = pd.DataFrame({
@@ -134,22 +162,28 @@ df["Risk Score"] = (
 # ANOMALY DETECTION
 # =========================
 mean = df["Risk Score"].mean()
+
 std = df["Risk Score"].std() + 1e-6
 
 df["Anomaly Score"] = (
     (df["Risk Score"] - mean) / std
 )
 
-df["Anomaly"] = df["Anomaly Score"].apply(
-    lambda x: abs(x) > 1.5
-)
+df["Anomaly"] = df[
+    "Anomaly Score"
+].apply(lambda x: abs(x) > 1.5)
 
 # =========================
 # FORECASTING ENGINE
 # =========================
+forecast_multiplier = np.random.uniform(
+    0.95,
+    1.20,
+    len(df)
+)
+
 df["Forecast Risk"] = (
-    df["Risk Score"] *
-    np.random.uniform(0.95, 1.20)
+    df["Risk Score"] * forecast_multiplier
 )
 
 # =========================
@@ -181,7 +215,9 @@ alerts = df[df["Anomaly"] == True]
 
 if alerts.empty:
 
-    st.success("🟢 No major anomalies detected")
+    st.success(
+        "🟢 No major anomalies detected"
+    )
 
 else:
 
@@ -193,7 +229,7 @@ else:
         )
 
 # =========================
-# GLOBAL RISK MAP
+# GLOBAL MAP
 # =========================
 st.subheader("🌍 Global Risk Map")
 
@@ -202,6 +238,7 @@ fig = px.choropleth(
     locations="Country",
     locationmode="country names",
     color="Risk Score",
+    hover_name="Country",
     title="WHO AI Global Risk Map"
 )
 
@@ -228,7 +265,25 @@ st.bar_chart(
 )
 
 # =========================
-# DATA TABLE
+# TOP RISK COUNTRIES
+# =========================
+st.subheader("🔥 Highest Risk Countries")
+
+top_df = df.sort_values(
+    "Risk Score",
+    ascending=False
+).head(10)
+
+st.dataframe(
+    top_df[[
+        "Country",
+        "Risk Score",
+        "Forecast Risk"
+    ]]
+)
+
+# =========================
+# RAW DATA
 # =========================
 st.subheader("📊 Intelligence Data")
 
@@ -242,5 +297,5 @@ st.markdown("---")
 st.write(
     "✔ WHO AI Intelligence System "
     "| Multi-Source Live Intelligence "
-    "| Production Single-App Version"
+    "| Resilient Production Version"
 )
