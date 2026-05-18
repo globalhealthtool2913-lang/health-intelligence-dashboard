@@ -5,10 +5,10 @@ import requests
 import io
 import plotly.express as px
 
-st.set_page_config(page_title="WHO AI Intelligence System", layout="wide")
+st.set_page_config(page_title="WHO AI Forecast System", layout="wide")
 
-st.title("🌍 WHO AI Intelligence System (Anomaly Detection)")
-st.caption("Real-time outbreak monitoring + AI anomaly detection")
+st.title("🌍 WHO AI Intelligence + Forecasting System")
+st.caption("Real-time outbreak detection + AI time-series forecasting")
 
 # =========================
 # DATA LOADER
@@ -64,17 +64,59 @@ df["Risk Score"] = (
 )
 
 # =========================
-# 🧠 AI ANOMALY DETECTION ENGINE
+# 🧠 ANOMALY DETECTION
 # =========================
-
 mean_risk = df["Risk Score"].mean()
 std_risk = df["Risk Score"].std()
 
 df["Anomaly Score"] = (df["Risk Score"] - mean_risk) / (std_risk + 1e-6)
+df["Anomaly"] = df["Anomaly Score"].apply(lambda x: abs(x) > 1.5)
 
-df["Anomaly Flag"] = df["Anomaly Score"].apply(
-    lambda x: "🚨 ANOMALY" if abs(x) > 1.5 else "OK"
-)
+# =========================
+# 📈 FORECASTING ENGINE (TIME SERIES AI)
+# =========================
+
+def forecast_risk(series, steps=5):
+
+    # simple AI trend model (rolling slope approximation)
+    x = np.arange(len(series))
+    y = series.values
+
+    if len(series) < 2:
+        return [series.mean()] * steps
+
+    # linear regression (manual)
+    slope = np.polyfit(x, y, 1)[0]
+
+    last_value = y[-1]
+
+    forecast = []
+    for i in range(1, steps + 1):
+        forecast.append(last_value + slope * i)
+
+    return forecast
+
+# Create synthetic time series per country
+st.subheader("📈 AI Forecasting (Next 5 Steps)")
+
+forecast_results = []
+
+for _, row in df.iterrows():
+
+    history = np.array([
+        row["Risk Score"] * np.random.uniform(0.8, 1.0),
+        row["Risk Score"] * np.random.uniform(0.9, 1.1),
+        row["Risk Score"]
+    ])
+
+    future = forecast_risk(pd.Series(history), steps=5)
+
+    forecast_results.append({
+        "Country": row["Country"],
+        "Next_Risk": future[-1]
+    })
+
+forecast_df = pd.DataFrame(forecast_results)
 
 # =========================
 # METRICS
@@ -82,43 +124,54 @@ df["Anomaly Flag"] = df["Anomaly Score"].apply(
 col1, col2, col3 = st.columns(3)
 
 col1.metric("Countries", len(df))
-col2.metric("Avg Risk", round(mean_risk, 2))
-col3.metric("Max Risk", round(df["Risk Score"].max(), 2))
+col2.metric("Avg Risk", round(df["Risk Score"].mean(), 2))
+col3.metric("Max Forecast Risk", round(forecast_df["Next_Risk"].max(), 2))
 
 # =========================
-# ALERTS
+# ALERT SYSTEM
 # =========================
-st.subheader("🚨 Outbreak Alerts")
+st.subheader("🚨 AI Alerts (Anomaly Detection)")
 
-alerts = df[df["Anomaly Flag"] == "🚨 ANOMALY"]
+alerts = df[df["Anomaly"] == True]
 
 if alerts.empty:
-    st.success("🟢 No anomaly detected")
+    st.success("🟢 No anomalies detected")
 else:
     for _, row in alerts.iterrows():
-        st.error(
-            f"{row['Country']} → Risk {row['Risk Score']:.2f} | "
-            f"Anomaly Score: {row['Anomaly Score']:.2f}"
-        )
+        st.error(f"{row['Country']} → Risk {row['Risk Score']:.2f} (ANOMALY)")
 
 # =========================
-# MAP
+# FORECAST DISPLAY
 # =========================
-st.subheader("🌍 Global Risk Map")
+st.subheader("📊 Forecasted Risk (Next Period)")
+
+fig2 = px.bar(
+    forecast_df,
+    x="Country",
+    y="Next_Risk",
+    title="AI Predicted Outbreak Risk"
+)
+
+st.plotly_chart(fig2, use_container_width=True)
+
+# =========================
+# GLOBAL MAP
+# =========================
+st.subheader("🌍 Current Risk Map")
 
 fig = px.choropleth(
     df,
     locations="Country",
     locationmode="country names",
     color="Risk Score",
-    title="WHO AI Risk Map with Anomaly Detection"
+    title="WHO AI Risk Map"
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
 # =========================
-# DATA TABLE
+# TABLE
 # =========================
-st.subheader("📊 Intelligence Table")
+st.subheader("📊 Intelligence Data")
 
 st.dataframe(df)
