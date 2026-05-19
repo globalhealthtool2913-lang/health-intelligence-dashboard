@@ -1,46 +1,58 @@
 from fastapi import FastAPI
-import requests
-import pandas as pd
-import io
-import time
+from pydantic import BaseModel
+import numpy as np
 
-app = FastAPI()
+app = FastAPI(title="WHO AI Core Engine")
 
-CACHE = {}
-
-# =========================
-# LIVE DATA STREAM FUNCTION
-# =========================
-def fetch_data():
-
-    url = "https://covid.ourworldindata.org/data/owid-covid-data.csv"
-
-    r = requests.get(url, timeout=20)
-    df = pd.read_csv(io.StringIO(r.text))
-
-    latest = df[df["date"] == df["date"].max()]
-
-    latest = latest[[
-        "location",
-        "total_cases_per_million",
-        "total_deaths_per_million",
-        "stringency_index"
-    ]].dropna()
-
-    return latest.to_dict()
+class CountryData(BaseModel):
+    country: str
+    cases: float
+    deaths: float
+    policy: float
 
 # =========================
-# STREAM ENDPOINT
+# RISK ENGINE
 # =========================
-@app.get("/stream")
-def stream_data():
+@app.post("/risk")
+def compute_risk(data: CountryData):
 
-    global CACHE
+    risk = (
+        data.cases * 0.4 +
+        data.deaths * 0.4 +
+        (100 - data.policy) * 0.2
+    )
 
-    data = fetch_data()
-    CACHE = {
-        "timestamp": time.time(),
-        "data": data
+    return {
+        "country": data.country,
+        "risk": risk
     }
 
-    return CACHE
+# =========================
+# ANOMALY DETECTION (SIMPLE VERSION)
+# =========================
+@app.post("/anomaly")
+def detect_anomaly(values: list[float]):
+
+    mean = np.mean(values)
+    std = np.std(values)
+
+    anomalies = [
+        v for v in values
+        if abs(v - mean) > 2 * std
+    ]
+
+    return {
+        "anomalies": anomalies
+    }
+
+# =========================
+# FORECAST ENGINE
+# =========================
+@app.post("/forecast")
+def forecast(values: list[float]):
+
+    trend = np.mean(values[-5:]) * 1.1
+
+    return {
+        "forecast": trend
+    }
