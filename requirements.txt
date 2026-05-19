@@ -4,4 +4,6 @@ numpy
 plotly
 requests
 feedparser
-openai
+scikit-learn
+prophet
+sqlite3
