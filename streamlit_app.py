@@ -4,11 +4,10 @@ import numpy as np
 import requests
 import plotly.express as px
 import feedparser
-from datetime import datetime
 from sklearn.ensemble import IsolationForest
 
 # =========================
-# CONFIG
+# PAGE CONFIG
 # =========================
 st.set_page_config(
     page_title="WHO Global Intelligence System",
@@ -16,16 +15,21 @@ st.set_page_config(
 )
 
 st.title("🌍 WHO Global Intelligence System")
-st.caption("Multi-source Health Intelligence + AI Risk + Forecasting")
+st.caption(
+    "Live Epidemic Intelligence + AI Risk Detection + Global Outbreak Monitoring"
+)
 
 # =========================
-# DATA SOURCE (LIVE + FALLBACK)
+# LOAD LIVE HEALTH DATA
 # =========================
 @st.cache_data(ttl=120)
-def load_data():
+def load_health_data():
+
     try:
         url = "https://disease.sh/v3/covid-19/countries"
+
         r = requests.get(url, timeout=10)
+
         data = r.json()
 
         df = pd.DataFrame(data)[[
@@ -35,24 +39,29 @@ def load_data():
         ]]
 
         df.columns = ["Country", "Cases", "Deaths"]
+
         df["Policy"] = np.random.randint(40, 90, len(df))
 
         return df, True
 
     except:
-        return pd.DataFrame({
+
+        fallback = pd.DataFrame({
             "Country": ["Ethiopia", "Kenya", "USA", "India", "Brazil"],
             "Cases": np.random.randint(1000, 5000, 5),
             "Deaths": np.random.randint(50, 300, 5),
             "Policy": np.random.randint(40, 90, 5)
-        }), False
+        })
 
-df, live = load_data()
+        return fallback, False
+
+
+df, live = load_health_data()
 
 if live:
-    st.success("🟢 LIVE DATA ACTIVE")
+    st.success("🟢 LIVE HEALTH DATA ACTIVE")
 else:
-    st.warning("🔴 Fallback Mode")
+    st.warning("🔴 Fallback Mode Active")
 
 # =========================
 # CLEAN DATA
@@ -60,7 +69,7 @@ else:
 df = df.dropna()
 
 # =========================
-# RISK ENGINE
+# AI RISK ENGINE
 # =========================
 df["Risk"] = (
     df["Cases"] * 0.4 +
@@ -73,16 +82,229 @@ df["Risk"] = df["Risk"].clip(0, 5000)
 # =========================
 # AI ANOMALY DETECTION
 # =========================
-model = IsolationForest(contamination=0.1, random_state=42)
+model = IsolationForest(
+    contamination=0.1,
+    random_state=42
+)
+
 df["Anomaly"] = model.fit_predict(df[["Risk"]])
-df["Anomaly"] = df["Anomaly"].apply(lambda x: "ALERT" if x == -1 else "OK")
+
+df["Anomaly"] = df["Anomaly"].apply(
+    lambda x: "ALERT" if x == -1 else "OK"
+)
 
 # =========================
-# FORECASTING (SAFE SIMPLE MODEL)
+# FORECASTING
 # =========================
-df["Forecast"] = df["Risk"].rolling(2).mean().fillna(df["Risk"])
+df["Forecast"] = (
+    df["Risk"]
+    .rolling(2)
+    .mean()
+    .fillna(df["Risk"])
+)
 
 # =========================
-# FILTERS
+# SIDEBAR FILTERS
 # =========================
-st
+st.sidebar.header("🌍 Filters")
+
+selected_countries = st.sidebar.multiselect(
+    "Select Countries",
+    df["Country"].tolist(),
+    default=df["Country"].tolist()
+)
+
+min_risk = st.sidebar.slider(
+    "Minimum Risk",
+    0,
+    int(df["Risk"].max()),
+    0
+)
+
+filtered = df[
+    (df["Country"].isin(selected_countries)) &
+    (df["Risk"] >= min_risk)
+]
+
+# =========================
+# METRICS
+# =========================
+col1, col2, col3, col4 = st.columns(4)
+
+col1.metric(
+    "Countries",
+    len(filtered)
+)
+
+col2.metric(
+    "Average Risk",
+    round(filtered["Risk"].mean(), 2)
+)
+
+col3.metric(
+    "Maximum Risk",
+    round(filtered["Risk"].max(), 2)
+)
+
+col4.metric(
+    "AI Alerts",
+    int((filtered["Anomaly"] == "ALERT").sum())
+)
+
+# =========================
+# ALERTS
+# =========================
+st.subheader("🚨 Live Outbreak Alerts")
+
+alerts = filtered[
+    filtered["Anomaly"] == "ALERT"
+]
+
+if alerts.empty:
+
+    st.success("🟢 No critical outbreak anomalies detected")
+
+else:
+
+    for _, row in alerts.iterrows():
+
+        st.error(
+            f"{row['Country']} → HIGH RISK ALERT ({row['Risk']:.2f})"
+        )
+
+# =========================
+# WHO RSS FEEDS
+# =========================
+st.subheader("📰 WHO Disease Outbreak News")
+
+try:
+
+    feed = feedparser.parse(
+        "https://www.who.int/feeds/entity/csr/don/en/rss.xml"
+    )
+
+    for entry in feed.entries[:5]:
+
+        st.markdown(f"• {entry.title}")
+
+except:
+
+    st.warning("WHO RSS feed unavailable")
+
+# =========================
+# GDELT GLOBAL OUTBREAK INTELLIGENCE
+# =========================
+@st.cache_data(ttl=300)
+def get_gdelt_outbreaks():
+
+    url = "https://api.gdeltproject.org/api/v2/doc/doc"
+
+    params = {
+        "query": (
+            "outbreak OR epidemic OR pandemic "
+            "OR virus OR cholera OR dengue"
+        ),
+        "mode": "ArtList",
+        "maxrecords": 10,
+        "format": "json"
+    }
+
+    try:
+
+        r = requests.get(
+            url,
+            params=params,
+            timeout=15
+        )
+
+        articles = r.json().get("articles", [])
+
+        return articles
+
+    except:
+
+        return []
+
+st.subheader("🌍 Live Global Outbreak Intelligence")
+
+articles = get_gdelt_outbreaks()
+
+if len(articles) == 0:
+
+    st.warning("GDELT outbreak feed unavailable")
+
+else:
+
+    for article in articles:
+
+        title = article.get("title", "No title")
+        source = article.get(
+            "sourceCommonName",
+            "Unknown Source"
+        )
+
+        link = article.get("url", "")
+
+        st.markdown(f"""
+### 📰 {title}
+
+**Source:** {source}
+
+[Read Full Article]({link})
+""")
+
+# =========================
+# GLOBAL MAP
+# =========================
+st.subheader("🌍 WHO Global Risk Map")
+
+fig = px.choropleth(
+    filtered,
+    locations="Country",
+    locationmode="country names",
+    color="Risk",
+    hover_name="Country",
+    title="Global AI Risk Intelligence"
+)
+
+st.plotly_chart(
+    fig,
+    use_container_width=True
+)
+
+# =========================
+# FORECASTING
+# =========================
+st.subheader("📈 AI Forecasting Engine")
+
+st.bar_chart(
+    filtered.set_index("Country")["Forecast"]
+)
+
+# =========================
+# DATA TABLE
+# =========================
+st.subheader("📊 Intelligence Dataset")
+
+st.dataframe(filtered)
+
+# =========================
+# EXPORT
+# =========================
+csv = filtered.to_csv(index=False).encode("utf-8")
+
+st.download_button(
+    label="⬇ Download Intelligence Report",
+    data=csv,
+    file_name="who_global_intelligence.csv",
+    mime="text/csv"
+)
+
+# =========================
+# FOOTER
+# =========================
+st.markdown("---")
+
+st.write(
+    "✔ WHO Global Intelligence System | Stable Production Cloud Version"
+)
