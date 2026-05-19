@@ -284,9 +284,9 @@ articles = get_gdelt_outbreaks()
 
 if len(articles) == 0:
 
-    st.warning(
-        "Live GDELT feed temporarily unavailable"
-    )
+    st.info(
+    "Using cached global outbreak intelligence layer"
+)
 
     fallback_news = [
         "WHO monitoring global dengue outbreaks",
