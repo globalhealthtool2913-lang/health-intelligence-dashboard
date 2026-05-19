@@ -1,4 +1,4 @@
-import streamlit as st
+  import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
@@ -16,7 +16,7 @@ st.set_page_config(
 
 st.title("🌍 WHO Global Intelligence System")
 st.caption(
-    "Live Epidemic Intelligence + AI Risk Detection + Global Outbreak Monitoring"
+    "Live Epidemic Intelligence + AI Risk Detection + Global Monitoring"
 )
 
 # =========================
@@ -26,9 +26,10 @@ st.caption(
 def load_health_data():
 
     try:
+
         url = "https://disease.sh/v3/covid-19/countries"
 
-        r = requests.get(url, timeout=10)
+        r = requests.get(url, timeout=15)
 
         data = r.json()
 
@@ -38,16 +39,30 @@ def load_health_data():
             "deathsPerOneMillion"
         ]]
 
-        df.columns = ["Country", "Cases", "Deaths"]
+        df.columns = [
+            "Country",
+            "Cases",
+            "Deaths"
+        ]
 
-        df["Policy"] = np.random.randint(40, 90, len(df))
+        df["Policy"] = np.random.randint(
+            40,
+            90,
+            len(df)
+        )
 
         return df, True
 
     except:
 
         fallback = pd.DataFrame({
-            "Country": ["Ethiopia", "Kenya", "USA", "India", "Brazil"],
+            "Country": [
+                "Ethiopia",
+                "Kenya",
+                "USA",
+                "India",
+                "Brazil"
+            ],
             "Cases": np.random.randint(1000, 5000, 5),
             "Deaths": np.random.randint(50, 300, 5),
             "Policy": np.random.randint(40, 90, 5)
@@ -87,7 +102,9 @@ model = IsolationForest(
     random_state=42
 )
 
-df["Anomaly"] = model.fit_predict(df[["Risk"]])
+df["Anomaly"] = model.fit_predict(
+    df[["Risk"]]
+)
 
 df["Anomaly"] = df["Anomaly"].apply(
     lambda x: "ALERT" if x == -1 else "OK"
@@ -162,14 +179,17 @@ alerts = filtered[
 
 if alerts.empty:
 
-    st.success("🟢 No critical outbreak anomalies detected")
+    st.success(
+        "🟢 No critical outbreak anomalies detected"
+    )
 
 else:
 
     for _, row in alerts.iterrows():
 
         st.error(
-            f"{row['Country']} → HIGH RISK ALERT ({row['Risk']:.2f})"
+            f"{row['Country']} → HIGH RISK ALERT "
+            f"({row['Risk']:.2f})"
         )
 
 # =========================
@@ -192,9 +212,9 @@ except:
     st.warning("WHO RSS feed unavailable")
 
 # =========================
-# GDELT GLOBAL OUTBREAK INTELLIGENCE
+# GDELT OUTBREAK INTELLIGENCE
 # =========================
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=600)
 def get_gdelt_outbreaks():
 
     url = "https://api.gdeltproject.org/api/v2/doc/doc"
@@ -206,7 +226,12 @@ def get_gdelt_outbreaks():
         ),
         "mode": "ArtList",
         "maxrecords": 10,
-        "format": "json"
+        "format": "json",
+        "sort": "DateDesc"
+    }
+
+    headers = {
+        "User-Agent": "Mozilla/5.0"
     }
 
     try:
@@ -214,16 +239,22 @@ def get_gdelt_outbreaks():
         r = requests.get(
             url,
             params=params,
-            timeout=15
+            headers=headers,
+            timeout=30
         )
 
-        articles = r.json().get("articles", [])
+        if r.status_code == 200:
 
-        return articles
+            data = r.json()
+
+            return data.get("articles", [])
+
+        return []
 
     except:
 
         return []
+
 
 st.subheader("🌍 Live Global Outbreak Intelligence")
 
@@ -231,13 +262,19 @@ articles = get_gdelt_outbreaks()
 
 if len(articles) == 0:
 
-    st.warning("GDELT outbreak feed unavailable")
+    st.warning(
+        "GDELT outbreak feed unavailable"
+    )
 
 else:
 
     for article in articles:
 
-        title = article.get("title", "No title")
+        title = article.get(
+            "title",
+            "No title"
+        )
+
         source = article.get(
             "sourceCommonName",
             "Unknown Source"
@@ -252,6 +289,28 @@ else:
 
 [Read Full Article]({link})
 """)
+
+# =========================
+# AI OUTBREAK SUMMARY
+# =========================
+st.subheader("🧠 AI Global Situation Summary")
+
+high_risk = filtered.sort_values(
+    "Risk",
+    ascending=False
+).head(3)
+
+summary = []
+
+for _, row in high_risk.iterrows():
+
+    summary.append(
+        f"{row['Country']} shows elevated "
+        f"risk activity with AI risk score "
+        f"{row['Risk']:.2f}."
+    )
+
+st.info(" ".join(summary))
 
 # =========================
 # GLOBAL MAP
@@ -291,7 +350,9 @@ st.dataframe(filtered)
 # =========================
 # EXPORT
 # =========================
-csv = filtered.to_csv(index=False).encode("utf-8")
+csv = filtered.to_csv(
+    index=False
+).encode("utf-8")
 
 st.download_button(
     label="⬇ Download Intelligence Report",
@@ -306,5 +367,6 @@ st.download_button(
 st.markdown("---")
 
 st.write(
-    "✔ WHO Global Intelligence System | Stable Production Cloud Version"
-)
+    "✔ WHO Global Intelligence System "
+    "| Stable Production Cloud Version"
+)  
