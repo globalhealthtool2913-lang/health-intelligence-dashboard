@@ -3,110 +3,104 @@ import pandas as pd
 import numpy as np
 import requests
 import plotly.express as px
+import sqlite3
+import feedparser
 import os
 from datetime import datetime
-
-# =========================
-# SAFE OPENAI IMPORT
-# =========================
-GPT_AVAILABLE = False
-
-try:
-    from openai import OpenAI
-
-    api_key = os.getenv("OPENAI_API_KEY")
-
-    if api_key:
-        client = OpenAI(api_key=api_key)
-        GPT_AVAILABLE = True
-
-except Exception:
-    GPT_AVAILABLE = False
 
 # =========================
 # PAGE CONFIG
 # =========================
 st.set_page_config(
-    page_title="WHO Global AI Intelligence System",
+    page_title="WHO Global AI Intelligence Platform",
     layout="wide"
 )
 
-st.title("🌍 WHO Global AI Intelligence System")
+st.title("🌍 WHO Global AI Intelligence Platform")
 st.caption(
-    "Autonomous Multi-Agent Surveillance + Forecasting + Event Intelligence"
+    "Real-Time Surveillance + Forecasting + News Intelligence + Alerts"
 )
 
 # =========================
-# MEMORY SYSTEM
+# DATABASE
 # =========================
-if "memory" not in st.session_state:
-    st.session_state.memory = []
+conn = sqlite3.connect(
+    "who_surveillance.db",
+    check_same_thread=False
+)
+
+cursor = conn.cursor()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS surveillance (
+    time TEXT,
+    country TEXT,
+    risk REAL
+)
+""")
+
+conn.commit()
 
 # =========================
 # LIVE DATA ENGINE
 # =========================
-@st.cache_data(ttl=120)
+@st.cache_data(ttl=300)
 def load_data():
 
     try:
+
         url = "https://disease.sh/v3/covid-19/countries"
 
         r = requests.get(url, timeout=20)
 
-        if r.status_code == 200:
+        data = r.json()
 
-            data = r.json()
+        df = pd.DataFrame(data)[[
+            "country",
+            "casesPerOneMillion",
+            "deathsPerOneMillion"
+        ]]
 
-            df = pd.DataFrame(data)[[
-                "country",
-                "casesPerOneMillion",
-                "deathsPerOneMillion"
-            ]]
+        df.columns = [
+            "Country",
+            "Cases",
+            "Deaths"
+        ]
 
-            df.columns = [
-                "Country",
-                "Cases",
-                "Deaths"
-            ]
+        df["Policy"] = np.random.randint(
+            40,
+            90,
+            len(df)
+        )
 
-            df["Policy"] = np.random.randint(
-                40,
-                90,
-                len(df)
-            )
-
-            return df, True
+        return df, True
 
     except Exception:
-        pass
 
-    fallback = pd.DataFrame({
-        "Country": [
-            "Ethiopia",
-            "Kenya",
-            "USA",
-            "India",
-            "Brazil"
-        ],
-        "Cases": np.random.randint(1000, 5000, 5),
-        "Deaths": np.random.randint(50, 300, 5),
-        "Policy": np.random.randint(40, 90, 5)
-    })
+        fallback = pd.DataFrame({
+            "Country": [
+                "Ethiopia",
+                "Kenya",
+                "USA",
+                "India",
+                "Brazil"
+            ],
+            "Cases": np.random.randint(1000, 5000, 5),
+            "Deaths": np.random.randint(50, 300, 5),
+            "Policy": np.random.randint(40, 90, 5)
+        })
 
-    return fallback, False
+        return fallback, False
 
-# =========================
-# LOAD DATA
-# =========================
 df, live_status = load_data()
 
 # =========================
 # STATUS
 # =========================
 if live_status:
-    st.success("🟢 LIVE GLOBAL HEALTH STREAM ACTIVE")
+    st.success("🟢 LIVE GLOBAL DATA ACTIVE")
 else:
-    st.warning("🔴 Live sources unavailable → Backup mode active")
+    st.warning("🔴 Backup mode active")
 
 # =========================
 # RISK ENGINE
@@ -118,9 +112,17 @@ df["Risk Score"] = (
 )
 
 # =========================
-# EVENT ENGINE
+# FORECAST ENGINE
 # =========================
-def classify_event(risk):
+df["Forecast"] = (
+    df["Risk Score"] *
+    np.random.uniform(0.95, 1.12, len(df))
+)
+
+# =========================
+# EVENT CLASSIFICATION
+# =========================
+def classify(risk):
 
     if risk > 3500:
         return "CRITICAL"
@@ -134,233 +136,136 @@ def classify_event(risk):
     else:
         return "STABLE"
 
-df["Event"] = df["Risk Score"].apply(classify_event)
+df["Event"] = df["Risk Score"].apply(classify)
 
 # =========================
-# FORECAST ENGINE
+# SAVE TO DATABASE
 # =========================
-df["Forecast"] = (
-    df["Risk Score"] *
-    np.random.uniform(0.95, 1.15, len(df))
+now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+for _, row in df.iterrows():
+
+    cursor.execute(
+        """
+        INSERT INTO surveillance
+        VALUES (?, ?, ?)
+        """,
+        (
+            now,
+            row["Country"],
+            float(row["Risk Score"])
+        )
+    )
+
+conn.commit()
+
+# =========================
+# FILTERS
+# =========================
+st.sidebar.header("🌍 Filters")
+
+country_filter = st.sidebar.multiselect(
+    "Select Countries",
+    df["Country"].tolist(),
+    default=df["Country"].tolist()[:10]
 )
 
-# =========================
-# AGENT SYSTEM
-# =========================
-def surveillance_agent(df):
+risk_filter = st.sidebar.slider(
+    "Minimum Risk",
+    0,
+    int(df["Risk Score"].max()),
+    0
+)
 
-    critical = int((df["Event"] == "CRITICAL").sum())
-
-    return {
-        "agent": "Surveillance",
-        "critical_events": critical,
-        "status": "Monitoring outbreak activity"
-    }
-
-def forecast_agent(df):
-
-    return {
-        "agent": "Forecast",
-        "avg_forecast": round(
-            df["Forecast"].mean(),
-            2
-        ),
-        "status": "Forecasting epidemic trends"
-    }
-
-def policy_agent(df):
-
-    avg = df["Risk Score"].mean()
-
-    if avg > 2500:
-        action = "Escalate global response"
-
-    elif avg > 1500:
-        action = "Increase regional monitoring"
-
-    else:
-        action = "Maintain surveillance"
-
-    return {
-        "agent": "Policy",
-        "recommendation": action
-    }
-
-def news_agent():
-
-    return {
-        "agent": "News",
-        "keywords": [
-            "outbreak",
-            "virus",
-            "WHO alert",
-            "epidemic"
-        ]
-    }
-
-# =========================
-# RUN AGENTS
-# =========================
-surveillance = surveillance_agent(df)
-forecast = forecast_agent(df)
-policy = policy_agent(df)
-news = news_agent()
-
-network = {
-    "surveillance": surveillance,
-    "forecast": forecast,
-    "policy": policy,
-    "news": news
-}
-
-# =========================
-# MEMORY UPDATE
-# =========================
-st.session_state.memory.append({
-    "time": datetime.now().strftime("%H:%M:%S"),
-    "risk": float(df["Risk Score"].mean())
-})
-
-# =========================
-# GPT CHIEF AGENT
-# =========================
-def run_gpt_agent(network):
-
-    if not GPT_AVAILABLE:
-        return """
-GPT agent unavailable.
-
-To enable:
-1. Add openai to requirements.txt
-2. Add OPENAI_API_KEY to Streamlit secrets
-"""
-
-    prompt = f"""
-You are WHO Chief AI Coordinator.
-
-Analyze this intelligence network:
-
-{network}
-
-Provide:
-1. Global risk summary
-2. WHO recommendations
-3. Executive outbreak report
-"""
-
-    try:
-
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "WHO epidemic intelligence coordinator"
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
-        )
-
-        return response.choices[0].message.content
-
-    except Exception as e:
-        return f"GPT system error: {e}"
+filtered = df[
+    (df["Country"].isin(country_filter)) &
+    (df["Risk Score"] >= risk_filter)
+]
 
 # =========================
 # METRICS
 # =========================
 col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("Countries", len(df))
+col1.metric("Countries", len(filtered))
+
 col2.metric(
     "Average Risk",
-    round(df["Risk Score"].mean(), 2)
+    round(filtered["Risk Score"].mean(), 2)
 )
+
 col3.metric(
     "Maximum Risk",
-    round(df["Risk Score"].max(), 2)
+    round(filtered["Risk Score"].max(), 2)
 )
+
 col4.metric(
-    "Critical Events",
-    int((df["Event"] == "CRITICAL").sum())
+    "Critical Alerts",
+    int((filtered["Event"] == "CRITICAL").sum())
 )
-
-# =========================
-# NETWORK OUTPUT
-# =========================
-st.subheader("🧠 Multi-Agent Network")
-
-st.json(network)
-
-# =========================
-# GPT DECISION LAYER
-# =========================
-st.subheader("🤖 WHO GPT Chief Coordinator")
-
-if st.button("Run WHO AI Intelligence Cycle"):
-
-    with st.spinner("Running autonomous WHO agents..."):
-
-        report = run_gpt_agent(network)
-
-        st.success("WHO Intelligence Cycle Complete")
-
-        st.write(report)
 
 # =========================
 # ALERTS
 # =========================
-st.subheader("🚨 Global Alerts")
+st.subheader("🚨 Live Outbreak Alerts")
 
-alerts = df[df["Event"] != "STABLE"]
+alerts = filtered[
+    filtered["Event"] != "STABLE"
+]
 
 if alerts.empty:
 
-    st.success("🟢 No major outbreak events")
+    st.success("🟢 No major outbreak alerts")
 
 else:
 
     for _, row in alerts.iterrows():
 
         st.error(
-            f"{row['Country']} → {row['Event']} "
+            f"{row['Country']} → "
+            f"{row['Event']} "
             f"(Risk {row['Risk Score']:.2f})"
         )
 
 # =========================
+# WHO NEWS INGESTION
+# =========================
+st.subheader("📰 WHO & Outbreak News Intelligence")
+
+try:
+
+    feed = feedparser.parse(
+        "https://www.who.int/feeds/entity/csr/don/en/rss.xml"
+    )
+
+    for entry in feed.entries[:5]:
+
+        st.write(
+            f"• {entry.title}"
+        )
+
+except Exception:
+
+    st.warning("News feed unavailable")
+
+# =========================
 # EVENT STREAM
 # =========================
-st.subheader("📡 Live Event Stream")
+st.subheader("📡 Event Stream")
 
-for _, row in df.iterrows():
+for _, row in filtered.iterrows():
 
     st.write(
         f"{row['Country']} → {row['Event']}"
     )
 
 # =========================
-# MEMORY EVOLUTION
-# =========================
-st.subheader("🧠 Intelligence Memory Evolution")
-
-memory_df = pd.DataFrame(
-    st.session_state.memory
-)
-
-st.line_chart(
-    memory_df.set_index("time")
-)
-
-# =========================
-# GLOBAL MAP
+# MAP
 # =========================
 st.subheader("🌍 Global Surveillance Map")
 
 fig = px.choropleth(
-    df,
+    filtered,
     locations="Country",
     locationmode="country names",
     color="Risk Score",
@@ -379,25 +284,41 @@ st.plotly_chart(
 st.subheader("📈 AI Forecasting")
 
 st.bar_chart(
-    df.set_index("Country")["Forecast"]
+    filtered.set_index("Country")["Forecast"]
 )
 
 # =========================
-# DATA GRID
+# DATABASE HISTORY
+# =========================
+st.subheader("🧠 Historical Intelligence Storage")
+
+history = pd.read_sql_query(
+    """
+    SELECT * FROM surveillance
+    ORDER BY time DESC
+    LIMIT 100
+    """,
+    conn
+)
+
+st.dataframe(history)
+
+# =========================
+# MAIN DATA
 # =========================
 st.subheader("📊 Intelligence Dataset")
 
-st.dataframe(df)
+st.dataframe(filtered)
 
 # =========================
 # EXPORT
 # =========================
-csv = df.to_csv(index=False).encode("utf-8")
+csv = filtered.to_csv(index=False).encode("utf-8")
 
 st.download_button(
-    "⬇ Download WHO Intelligence Report",
+    "⬇ Download Intelligence Report",
     csv,
-    "who_intelligence_report.csv",
+    "who_report.csv",
     "text/csv"
 )
 
@@ -407,6 +328,6 @@ st.download_button(
 st.markdown("---")
 
 st.write(
-    "✔ WHO Global AI Intelligence System | "
-    "Multi-Agent + Forecasting + Event Streaming + GPT"
-)    
+    "✔ WHO Global AI Intelligence Platform | "
+    "News + Forecasting + Database + Alerts + Filters"
+)
