@@ -3,44 +3,29 @@ import pandas as pd
 import numpy as np
 import requests
 import plotly.express as px
-import sqlite3
 import feedparser
+from sklearn.ensemble import IsolationForest
 from datetime import datetime
 
 # =========================
 # APP CONFIG
 # =========================
 st.set_page_config(
-    page_title="WHO Global Intelligence System",
+    page_title="WHO AI Intelligence System",
     layout="wide"
 )
 
-st.title("🌍 WHO Global Intelligence System (Production-Ready)")
-st.caption("Live Surveillance + AI Forecast + News + Database + Alerts")
+st.title("🌍 WHO AI Intelligence System (Production)")
+st.caption("Live Health Monitoring + AI Risk + News + Forecasting")
 
 # =========================
-# DATABASE (LOCAL SAFE)
-# =========================
-conn = sqlite3.connect("who_system.db", check_same_thread=False)
-cursor = conn.cursor()
-
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS history (
-    time TEXT,
-    country TEXT,
-    risk REAL
-)
-""")
-conn.commit()
-
-# =========================
-# LIVE DATA (SAFE API)
+# LIVE DATA SOURCE
 # =========================
 @st.cache_data(ttl=120)
 def load_data():
     try:
         url = "https://disease.sh/v3/covid-19/countries"
-        r = requests.get(url, timeout=15)
+        r = requests.get(url, timeout=10)
         data = r.json()
 
         df = pd.DataFrame(data)[[
@@ -50,7 +35,6 @@ def load_data():
         ]]
 
         df.columns = ["Country", "Cases", "Deaths"]
-
         df["Policy"] = np.random.randint(40, 90, len(df))
 
         return df, True
@@ -63,12 +47,18 @@ def load_data():
             "Policy": np.random.randint(40, 90, 5)
         }), False
 
+
 df, live = load_data()
 
 if live:
     st.success("🟢 LIVE DATA ACTIVE")
 else:
-    st.warning("🔴 Using fallback dataset")
+    st.warning("🔴 Fallback Mode Active")
+
+# =========================
+# DATA CLEANING
+# =========================
+df = df.dropna()
 
 # =========================
 # RISK ENGINE
@@ -79,52 +69,33 @@ df["Risk"] = (
     (100 - df["Policy"]) * 0.2
 )
 
-# =========================
-# FORECAST (SIMPLIFIED REALISTIC)
-# =========================
-df["Forecast"] = df["Risk"] * np.random.uniform(0.9, 1.15, len(df))
+df["Risk"] = df["Risk"].clip(0, 5000)
 
 # =========================
-# EVENT CLASSIFICATION
+# AI ANOMALY DETECTION
 # =========================
-def classify(risk):
-    if risk > 3000:
-        return "CRITICAL"
-    elif risk > 2000:
-        return "HIGH ALERT"
-    elif risk > 1500:
-        return "WATCH"
-    else:
-        return "STABLE"
-
-df["Event"] = df["Risk"].apply(classify)
+model = IsolationForest(contamination=0.1, random_state=42)
+df["Anomaly"] = model.fit_predict(df[["Risk"]])
+df["Anomaly"] = df["Anomaly"].apply(lambda x: "ALERT" if x == -1 else "OK")
 
 # =========================
-# STORE HISTORY
+# FORECASTING (SAFE)
 # =========================
-now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-for _, row in df.iterrows():
-    cursor.execute(
-        "INSERT INTO history VALUES (?, ?, ?)",
-        (now, row["Country"], float(row["Risk"]))
-    )
-
-conn.commit()
+df["Forecast"] = df["Risk"].rolling(2).mean().fillna(df["Risk"])
 
 # =========================
-# FILTERS (IMPORTANT UPGRADE)
+# FILTERS
 # =========================
 st.sidebar.header("🌍 Filters")
 
 countries = st.sidebar.multiselect(
-    "Select Countries",
+    "Countries",
     df["Country"].tolist(),
     default=df["Country"].tolist()
 )
 
 min_risk = st.sidebar.slider(
-    "Minimum Risk Level",
+    "Minimum Risk",
     0,
     int(df["Risk"].max()),
     0
@@ -143,23 +114,23 @@ col1, col2, col3, col4 = st.columns(4)
 col1.metric("Countries", len(filtered))
 col2.metric("Avg Risk", round(filtered["Risk"].mean(), 2))
 col3.metric("Max Risk", round(filtered["Risk"].max(), 2))
-col4.metric("Alerts", int((filtered["Event"] != "STABLE").sum()))
+col4.metric("Alerts", int((filtered["Anomaly"] == "ALERT").sum()))
 
 # =========================
-# ALERT ENGINE
+# ALERT SYSTEM
 # =========================
 st.subheader("🚨 Live Outbreak Alerts")
 
-alerts = filtered[filtered["Event"] != "STABLE"]
+alerts = filtered[filtered["Anomaly"] == "ALERT"]
 
 if alerts.empty:
-    st.success("🟢 No active outbreaks detected")
+    st.success("🟢 No critical anomalies detected")
 else:
     for _, row in alerts.iterrows():
-        st.error(f"{row['Country']} → {row['Event']} (Risk {row['Risk']:.2f})")
+        st.error(f"{row['Country']} → HIGH RISK ALERT (Risk {row['Risk']:.2f})")
 
 # =========================
-# NEWS INTELLIGENCE (REAL WHO RSS)
+# WHO NEWS INTELLIGENCE
 # =========================
 st.subheader("📰 WHO News Intelligence")
 
@@ -197,18 +168,6 @@ st.subheader("📈 AI Forecasting")
 st.bar_chart(filtered.set_index("Country")["Forecast"])
 
 # =========================
-# HISTORY (DATABASE)
-# =========================
-st.subheader("🧠 Historical Intelligence Database")
-
-history = pd.read_sql_query(
-    "SELECT * FROM history ORDER BY time DESC LIMIT 50",
-    conn
-)
-
-st.dataframe(history)
-
-# =========================
 # DATA TABLE
 # =========================
 st.subheader("📊 Intelligence Dataset")
@@ -221,18 +180,11 @@ st.dataframe(filtered)
 csv = filtered.to_csv(index=False).encode("utf-8")
 
 st.download_button(
-    "⬇ Download WHO Report",
+    "⬇ Download Report",
     csv,
     "who_intelligence.csv",
     "text/csv"
 )
 
-# =========================
-# FOOTER
-# =========================
 st.markdown("---")
-
-st.write(
-    "✔ Stable WHO Intelligence System | "
-    "News + Forecast + Alerts + Database + Filters"
-)
+st.write("✔ Stable WHO AI Intelligence System")
