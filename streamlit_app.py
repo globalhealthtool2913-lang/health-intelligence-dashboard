@@ -9,7 +9,7 @@ from datetime import datetime
 import os
 
 # =========================
-# PAGE CONFIG
+# CONFIG
 # =========================
 st.set_page_config(
     page_title="WHO Global Intelligence System",
@@ -17,22 +17,17 @@ st.set_page_config(
 )
 
 st.title("🌍 WHO Global Intelligence System")
-st.caption(
-    "Live Epidemic Intelligence + AI Risk Detection + Historical Surveillance"
-)
+st.caption("Autonomous Epidemic Intelligence + AI Risk + Global Surveillance")
 
 # =========================
-# LOAD LIVE HEALTH DATA
+# LIVE HEALTH DATA
 # =========================
 @st.cache_data(ttl=120)
-def load_health_data():
+def load_health():
 
     try:
-
         url = "https://disease.sh/v3/covid-19/countries"
-
-        r = requests.get(url, timeout=15)
-
+        r = requests.get(url, timeout=10)
         data = r.json()
 
         df = pd.DataFrame(data)[[
@@ -41,52 +36,27 @@ def load_health_data():
             "deathsPerOneMillion"
         ]]
 
-        df.columns = [
-            "Country",
-            "Cases",
-            "Deaths"
-        ]
-
-        df["Policy"] = np.random.randint(
-            40,
-            90,
-            len(df)
-        )
+        df.columns = ["Country", "Cases", "Deaths"]
+        df["Policy"] = np.random.randint(40, 90, len(df))
 
         return df, True
 
     except:
-
-        fallback = pd.DataFrame({
-            "Country": [
-                "Ethiopia",
-                "Kenya",
-                "USA",
-                "India",
-                "Brazil"
-            ],
+        df = pd.DataFrame({
+            "Country": ["Ethiopia", "Kenya", "USA", "India", "Brazil"],
             "Cases": np.random.randint(1000, 5000, 5),
             "Deaths": np.random.randint(50, 300, 5),
             "Policy": np.random.randint(40, 90, 5)
         })
+        return df, False
 
-        return fallback, False
 
+df, live = load_health()
 
-df, live = load_health_data()
-
-if live:
-    st.success("🟢 LIVE HEALTH DATA ACTIVE")
-else:
-    st.warning("🔴 Fallback Mode Active")
+st.success("🟢 LIVE DATA ACTIVE") if live else st.warning("🔴 Fallback Mode")
 
 # =========================
-# CLEAN DATA
-# =========================
-df = df.dropna()
-
-# =========================
-# AI RISK ENGINE
+# RISK ENGINE
 # =========================
 df["Risk"] = (
     df["Cases"] * 0.4 +
@@ -99,57 +69,37 @@ df["Risk"] = df["Risk"].clip(0, 5000)
 # =========================
 # AI ANOMALY DETECTION
 # =========================
-model = IsolationForest(
-    contamination=0.1,
-    random_state=42
-)
-
-df["Anomaly"] = model.fit_predict(
-    df[["Risk"]]
-)
-
-df["Anomaly"] = df["Anomaly"].apply(
-    lambda x: "ALERT" if x == -1 else "OK"
-)
+model = IsolationForest(contamination=0.1, random_state=42)
+df["Anomaly"] = model.fit_predict(df[["Risk"]])
+df["Anomaly"] = df["Anomaly"].apply(lambda x: "ALERT" if x == -1 else "OK")
 
 # =========================
 # FORECASTING
 # =========================
-df["Forecast"] = (
-    df["Risk"]
-    .rolling(2)
-    .mean()
-    .fillna(df["Risk"])
-)
+df["Forecast"] = df["Risk"].rolling(2).mean().fillna(df["Risk"])
 
 # =========================
-# HISTORICAL STORAGE
+# HISTORICAL DATABASE
 # =========================
 history_file = "history.csv"
 
 snapshot = df.copy()
-
 snapshot["Timestamp"] = datetime.utcnow()
 
 if os.path.exists(history_file):
-
     old = pd.read_csv(history_file)
-
     combined = pd.concat([old, snapshot])
-
     combined.to_csv(history_file, index=False)
-
 else:
-
     snapshot.to_csv(history_file, index=False)
 
 # =========================
-# SIDEBAR FILTERS
+# FILTERS
 # =========================
 st.sidebar.header("🌍 Filters")
 
-selected_countries = st.sidebar.multiselect(
-    "Select Countries",
+selected = st.sidebar.multiselect(
+    "Countries",
     df["Country"].tolist(),
     default=df["Country"].tolist()
 )
@@ -162,256 +112,169 @@ min_risk = st.sidebar.slider(
 )
 
 filtered = df[
-    (df["Country"].isin(selected_countries)) &
+    (df["Country"].isin(selected)) &
     (df["Risk"] >= min_risk)
 ]
 
 # =========================
 # METRICS
 # =========================
-col1, col2, col3, col4 = st.columns(4)
+c1, c2, c3, c4 = st.columns(4)
 
-col1.metric(
-    "Countries",
-    len(filtered)
-)
-
-col2.metric(
-    "Average Risk",
-    round(filtered["Risk"].mean(), 2)
-)
-
-col3.metric(
-    "Maximum Risk",
-    round(filtered["Risk"].max(), 2)
-)
-
-col4.metric(
-    "AI Alerts",
-    int((filtered["Anomaly"] == "ALERT").sum())
-)
+c1.metric("Countries", len(filtered))
+c2.metric("Avg Risk", round(filtered["Risk"].mean(), 2))
+c3.metric("Max Risk", round(filtered["Risk"].max(), 2))
+c4.metric("Alerts", int((filtered["Anomaly"] == "ALERT").sum()))
 
 # =========================
 # ALERTS
 # =========================
-st.subheader("🚨 Live Outbreak Alerts")
+st.subheader("🚨 Outbreak Alerts")
 
-alerts = filtered[
-    filtered["Anomaly"] == "ALERT"
-]
+alerts = filtered[filtered["Anomaly"] == "ALERT"]
 
 if alerts.empty:
-
-    st.success(
-        "🟢 No critical outbreak anomalies detected"
-    )
-
+    st.success("No critical outbreaks detected")
 else:
-
     for _, row in alerts.iterrows():
-
-        st.error(
-            f"{row['Country']} → HIGH RISK ALERT "
-            f"({row['Risk']:.2f})"
-        )
+        st.error(f"{row['Country']} → HIGH RISK ({row['Risk']:.2f})")
 
 # =========================
-# WHO RSS NEWS
+# WHO RSS FEED
 # =========================
-st.subheader("📰 WHO Disease Outbreak News")
+st.subheader("📰 WHO Outbreak News")
 
 try:
-
     feed = feedparser.parse(
         "https://www.who.int/feeds/entity/csr/don/en/rss.xml"
     )
-
-    for entry in feed.entries[:5]:
-
-        st.markdown(f"• {entry.title}")
-
+    for e in feed.entries[:5]:
+        st.markdown(f"• {e.title}")
 except:
-
-    st.warning("WHO RSS feed unavailable")
+    st.warning("WHO feed unavailable")
 
 # =========================
-# GDELT OUTBREAK INTELLIGENCE
+# GDELT INTELLIGENCE
 # =========================
 @st.cache_data(ttl=600)
-def get_gdelt_outbreaks():
+def gdelt():
 
     url = "https://api.gdeltproject.org/api/v2/doc/doc"
 
     params = {
-        "query": (
-            "outbreak OR epidemic OR pandemic "
-            "OR virus OR cholera OR dengue"
-        ),
+        "query": "outbreak OR epidemic OR pandemic OR virus OR cholera",
         "mode": "ArtList",
         "maxrecords": 10,
-        "format": "json",
-        "sort": "DateDesc"
+        "format": "json"
     }
 
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+    headers = {"User-Agent": "Mozilla/5.0"}
 
     try:
-
-        r = requests.get(
-            url,
-            params=params,
-            headers=headers,
-            timeout=30
-        )
-
+        r = requests.get(url, params=params, headers=headers, timeout=20)
         if r.status_code == 200:
-
-            data = r.json()
-
-            return data.get("articles", [])
-
+            return r.json().get("articles", [])
         return []
-
     except:
-
         return []
 
-st.subheader("🌍 Live Global Outbreak Intelligence")
 
-articles = get_gdelt_outbreaks()
+st.subheader("🌍 Global Outbreak Intelligence")
 
-if len(articles) == 0:
+articles = gdelt()
 
-    st.info(
-    "Using cached global outbreak intelligence layer"
-)
+if not articles:
 
-    fallback_news = [
-        "WHO monitoring global dengue outbreaks",
-        "Regional cholera surveillance increasing",
-        "AI epidemic monitoring system active",
-        "Global respiratory virus surveillance ongoing",
-        "Cross-border outbreak intelligence operational"
+    st.info("Using cached intelligence layer")
+
+    fallback = [
+        "Global epidemic surveillance active",
+        "WHO monitoring infectious disease trends",
+        "Regional outbreak signals detected",
+        "Cross-border health intelligence operating",
+        "AI epidemic monitoring system active"
     ]
 
-    for item in fallback_news:
-
-        st.markdown(f"• {item}")
+    for f in fallback:
+        st.markdown(f"• {f}")
 
 else:
-
-    for article in articles:
-
-        title = article.get(
-            "title",
-            "No title"
-        )
-
-        source = article.get(
-            "sourceCommonName",
-            "Unknown Source"
-        )
-
-        link = article.get("url", "")
-
+    for a in articles:
         st.markdown(f"""
-### 📰 {title}
+### 📰 {a.get('title','No title')}
 
-**Source:** {source}
+Source: {a.get('sourceCommonName','Unknown')}
 
-[Read Full Article]({link})
+[Read]({a.get('url','')})
 """)
 
 # =========================
 # AI OUTBREAK SUMMARY
 # =========================
-st.subheader("🧠 AI Global Situation Summary")
+st.subheader("🧠 AI Global Analysis")
 
-high_risk = filtered.sort_values(
-    "Risk",
-    ascending=False
-).head(3)
+top = filtered.sort_values("Risk", ascending=False).head(3)
 
-summary = []
+summary = " ".join([
+    f"{r['Country']} shows elevated epidemic risk."
+    for _, r in top.iterrows()
+])
 
-for _, row in high_risk.iterrows():
-
-    summary.append(
-        f"{row['Country']} shows elevated "
-        f"risk activity with AI risk score "
-        f"{row['Risk']:.2f}."
-    )
-
-st.info(" ".join(summary))
+st.info(summary)
 
 # =========================
-# GLOBAL MAP
+# MAP
 # =========================
-st.subheader("🌍 WHO Global Risk Map")
+st.subheader("🌍 Global Risk Map")
 
 fig = px.choropleth(
     filtered,
     locations="Country",
     locationmode="country names",
-    color="Risk",
-    hover_name="Country",
-    title="Global AI Risk Intelligence"
+    color="Risk"
 )
 
-st.plotly_chart(
-    fig,
-    use_container_width=True
-)
+st.plotly_chart(fig, use_container_width=True)
 
 # =========================
-# FORECASTING
+# FORECAST
 # =========================
-st.subheader("📈 AI Forecasting Engine")
+st.subheader("📈 Forecast")
 
-st.bar_chart(
-    filtered.set_index("Country")["Forecast"]
-)
+st.bar_chart(filtered.set_index("Country")["Forecast"])
 
 # =========================
-# HISTORICAL DATABASE VIEW
+# HISTORY VIEW
 # =========================
-st.subheader("🗂 Historical Intelligence Database")
+st.subheader("🗂 Historical Data")
 
-history_df = pd.read_csv(history_file)
-
-st.dataframe(
-    history_df.tail(20)
-)
+if os.path.exists(history_file):
+    hist = pd.read_csv(history_file)
+    st.dataframe(hist.tail(20))
+else:
+    st.write("No history yet")
 
 # =========================
-# DATA TABLE
+# DATA
 # =========================
-st.subheader("📊 Intelligence Dataset")
+st.subheader("📊 Dataset")
 
 st.dataframe(filtered)
 
 # =========================
 # EXPORT
 # =========================
-csv = filtered.to_csv(
-    index=False
-).encode("utf-8")
+csv = filtered.to_csv(index=False).encode()
 
 st.download_button(
-    label="⬇ Download Intelligence Report",
-    data=csv,
-    file_name="who_global_intelligence.csv",
-    mime="text/csv"
+    "⬇ Download Report",
+    csv,
+    "who_intelligence.csv",
+    "text/csv"
 )
 
 # =========================
 # FOOTER
 # =========================
 st.markdown("---")
-
-st.write(
-    "✔ WHO Global Intelligence System "
-    "| Stable Production Cloud Version"
-)
+st.write("WHO AI Intelligence System | Production Cloud Version")
