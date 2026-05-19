@@ -34,7 +34,7 @@ st.caption("Stable production version (Streamlit-safe)")
 # SUPABASE SAFE CONNECT
 # =========================
 SUPABASE_URL = "https://bboiakuwwvqdlpnzlhct.supabase.co"
-SUPABASE_KEY = "PUT_YOUR_REAL_PUBLISHABLE_KEY_HERE"
+SUPABASE_KEY = "sb_publishable_BqQ_HClqREj01bd164av9A_Sl8XG1-Y"
 
 supabase = None
 
