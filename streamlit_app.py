@@ -9,20 +9,26 @@ from supabase import create_client
 import feedparser
 
 # =========================
-# CONFIG
+# APP CONFIG
 # =========================
 st.set_page_config(page_title="WHO AI Intelligence System", layout="wide")
 
 st.title("🌍 WHO AI Global Health Intelligence System")
-st.caption("Powered by AI Agents + Supabase Memory + Global Surveillance")
+st.caption("AI Agents + Supabase Memory + Global Surveillance")
 
 # =========================
-# SUPABASE CONNECT
+# SUPABASE CONNECTION (FIXED)
 # =========================
-SUPABASE_URL = "YOUR_SUPABASE_URL"
-SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY"
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+SUPABASE_URL = "https://bboiakuwwvqdlpnzlhct.supabase.co"
+SUPABASE_KEY = "sb_publishable_BqQ_HClqREj01bd164av9A_Sl8XG1-Y"
+
+try:
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    st.success("🟢 Supabase connected successfully")
+except Exception as e:
+    st.error(f"Supabase connection failed: {e}")
+    st.stop()
 
 # =========================
 # LOAD HEALTH DATA
@@ -42,6 +48,7 @@ def load_data():
         ]]
 
         df.columns = ["Country", "Cases", "Deaths"]
+
         df["Policy"] = np.random.randint(40, 90, len(df))
 
         return df, True
@@ -108,18 +115,22 @@ def orchestrator(df):
 df = orchestrator(df)
 
 # =========================
-# SUPABASE SAVE FUNCTION
+# SAVE TO SUPABASE (FIXED)
 # =========================
 def save_to_supabase(df):
 
     for _, row in df.iterrows():
 
-        supabase.table("outbreak_history").insert({
-            "country": row["Country"],
-            "risk_score": float(row["risk_score"]),
-            "anomaly": row["anomaly"],
-            "timestamp": str(datetime.utcnow())
-        }).execute()
+        try:
+            supabase.table("outbreak_history").insert({
+                "country": row["Country"],
+                "risk_score": float(row["risk_score"]),
+                "anomaly": row["anomaly"],
+                "timestamp": str(datetime.utcnow())
+            }).execute()
+
+        except Exception as e:
+            st.warning(f"Insert failed: {e}")
 
 # SAVE DATA
 save_to_supabase(df)
@@ -187,7 +198,7 @@ except:
     st.warning("WHO feed unavailable")
 
 # =========================
-# GLOBAL MAP
+# MAP
 # =========================
 st.subheader("🌍 Global Risk Map")
 
@@ -208,14 +219,14 @@ st.subheader("📈 Forecast")
 st.bar_chart(filtered.set_index("Country")["forecast"])
 
 # =========================
-# DATA
+# DATA TABLE
 # =========================
 st.subheader("📊 Dataset")
 
 st.dataframe(filtered)
 
 # =========================
-# DOWNLOAD
+# EXPORT
 # =========================
 csv = filtered.to_csv(index=False).encode()
 
@@ -230,4 +241,4 @@ st.download_button(
 # FOOTER
 # =========================
 st.markdown("---")
-st.write("WHO AI Intelligence System | Supabase Powered")
+st.write("WHO AI System | Supabase Connected | Production Prototype")
