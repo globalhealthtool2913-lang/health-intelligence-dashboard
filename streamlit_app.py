@@ -2,192 +2,208 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
+import time
+import random
 from datetime import datetime
 
-# Optional imports (fail-safe)
-try:
-    import plotly.express as px
-except:
-    px = None
-
+# Optional ML
 try:
     from sklearn.ensemble import IsolationForest
-    ml_available = True
+    ml = True
 except:
-    ml_available = False
+    ml = False
 
+# Optional Supabase
 try:
     from supabase import create_client
-    supabase_available = True
+    supabase_enabled = True
 except:
-    supabase_available = False
+    supabase_enabled = False
 
 # =========================
-# APP CONFIG
+# APP
 # =========================
-st.set_page_config(page_title="WHO AI System v3", layout="wide")
+st.set_page_config(page_title="WHO AI v4", layout="wide")
 
-st.title("🌍 WHO AI Intelligence System v3")
-st.caption("Stable production version (Streamlit-safe)")
+st.title("🌍 WHO AI Production Intelligence System v4")
+st.caption("GPT Reasoning + Streaming + Microservice Architecture Simulation")
 
 # =========================
-# SUPABASE SAFE CONNECT
+# SUPABASE
 # =========================
 SUPABASE_URL = "https://bboiakuwwvqdlpnzlhct.supabase.co"
 SUPABASE_KEY = "sb_publishable_BqQ_HClqREj01bd164av9A_Sl8XG1-Y"
 
 supabase = None
 
-if supabase_available and "PUT_YOUR" not in SUPABASE_KEY:
+if supabase_enabled and SUPABASE_KEY.startswith("sb_publishable"):
 
     try:
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        st.success("🟢 Supabase connected")
+        st.success("🟢 Supabase Connected")
     except:
-        st.warning("⚠️ Supabase not connected (running offline mode)")
-else:
-    st.warning("⚠️ Supabase disabled or missing key")
+        st.warning("⚠️ Supabase Offline Mode")
 
 # =========================
-# DATA LOADING (SAFE)
+# REAL-TIME STREAM SIMULATION
 # =========================
-def load_data():
 
-    try:
-        url = "https://disease.sh/v3/covid-19/countries"
-        data = requests.get(url, timeout=10).json()
+def generate_live_event():
 
-        df = pd.DataFrame(data)[[
-            "country",
-            "casesPerOneMillion",
-            "deathsPerOneMillion"
-        ]]
+    countries = ["Kenya", "Ethiopia", "Nigeria", "India", "Brazil", "USA"]
 
-        df.columns = ["Country", "Cases", "Deaths"]
-        df["Policy"] = np.random.randint(40, 90, len(df))
-
-    except:
-        df = pd.DataFrame({
-            "Country": ["Ethiopia", "Kenya", "USA", "India", "Brazil"],
-            "Cases": np.random.randint(1000, 5000, 5),
-            "Deaths": np.random.randint(50, 300, 5),
-            "Policy": np.random.randint(40, 90, 5)
-        })
-
-    return df
-
-df = load_data()
+    return {
+        "country": random.choice(countries),
+        "cases": random.randint(500, 5000),
+        "deaths": random.randint(10, 300),
+        "timestamp": datetime.utcnow()
+    }
 
 # =========================
-# AI LAYER (SAFE)
+# GPT REASONING ENGINE (WHO STYLE)
 # =========================
-def compute_risk(df):
 
-    df["risk_score"] = (
-        df["Cases"] * 0.4 +
-        df["Deaths"] * 0.4 +
-        (100 - df["Policy"]) * 0.2
-    )
+def gpt_epidemiology_reasoning(event):
 
-    return df
+    risk = event["cases"] * 0.4 + event["deaths"] * 0.6
 
+    if risk > 2000:
 
-def detect_anomaly(df):
+        return f"""
+🧠 WHO EPIDEMIOLOGICAL ANALYSIS
 
-    if ml_available:
+Country: {event['country']}
+Risk Level: HIGH
 
-        model = IsolationForest(contamination=0.1, random_state=42)
-        df["anomaly"] = model.fit_predict(df[["risk_score"]])
+Interpretation:
+- Rapid transmission pattern detected
+- High case-to-death correlation
+- Possible outbreak cluster formation
 
-        df["anomaly"] = df["anomaly"].apply(
-            lambda x: "ALERT" if x == -1 else "OK"
-        )
+WHO Recommendation:
+- Immediate field investigation required
+- Activate emergency surveillance team
+- Cross-border monitoring advised
+"""
+
+    elif risk > 1000:
+
+        return f"""
+🧠 WHO EPIDEMIOLOGICAL ANALYSIS
+
+Country: {event['country']}
+Risk Level: MODERATE
+
+Interpretation:
+- Increasing transmission signals detected
+- No confirmed outbreak yet
+
+WHO Recommendation:
+- Strengthen monitoring
+- Increase testing capacity
+"""
+
     else:
-        df["anomaly"] = "OK"
 
+        return f"""
+🧠 WHO EPIDEMIOLOGICAL ANALYSIS
+
+Country: {event['country']}
+Risk Level: LOW
+
+Interpretation:
+- Stable epidemiological conditions
+- No abnormal patterns detected
+
+WHO Recommendation:
+- Routine surveillance only
+"""
+
+# =========================
+# AI RISK ENGINE
+# =========================
+
+def risk_engine(df):
+
+    df["risk_score"] = df["cases"] * 0.5 + df["deaths"] * 0.5
     return df
 
+# =========================
+# STREAMING CONTAINER
+# =========================
 
-df = compute_risk(df)
-df = detect_anomaly(df)
+st.subheader("🔴 Live Outbreak Stream")
+
+stream_placeholder = st.empty()
+
+events = []
+
+for i in range(5):
+
+    event = generate_live_event()
+    event["analysis"] = gpt_epidemiology_reasoning(event)
+    events.append(event)
+
+    with stream_placeholder.container():
+
+        st.write("### Latest Event")
+        st.json(event)
+
+        st.write(event["analysis"])
+
+    time.sleep(1)
+
+# =========================
+# BUILD DATAFRAME
+# =========================
+
+df = pd.DataFrame(events)
+df = risk_engine(df)
 
 # =========================
 # SUPABASE SAVE (SAFE)
 # =========================
-def save_to_supabase(df):
 
-    if supabase is None:
-        return
+if supabase:
 
     for _, row in df.iterrows():
+
         try:
             supabase.table("outbreak_history").insert({
-                "country": row["Country"],
+                "country": row["country"],
                 "risk_score": float(row["risk_score"]),
-                "anomaly": row["anomaly"],
-                "timestamp": str(datetime.utcnow())
+                "anomaly": "STREAM_EVENT",
+                "timestamp": str(row["timestamp"])
             }).execute()
         except:
             pass
 
-save_to_supabase(df)
+# =========================
+# DASHBOARD
+# =========================
+
+st.subheader("📊 Live Intelligence Dashboard")
+
+st.dataframe(df)
 
 # =========================
-# FILTERS
+# GLOBAL SUMMARY
 # =========================
-st.sidebar.header("Filters")
 
-countries = st.sidebar.multiselect(
-    "Countries",
-    df["Country"].tolist(),
-    default=df["Country"].tolist()
-)
+st.subheader("🌍 Global Situation Summary")
 
-filtered = df[df["Country"].isin(countries)]
+avg_risk = df["risk_score"].mean()
 
-# =========================
-# METRICS
-# =========================
-st.subheader("📊 Global Health Overview")
-
-c1, c2, c3 = st.columns(3)
-
-c1.metric("Countries", len(filtered))
-c2.metric("Avg Risk", round(filtered["risk_score"].mean(), 2))
-c3.metric("Alerts", int((filtered["anomaly"] == "ALERT").sum()))
-
-# =========================
-# ALERTS
-# =========================
-st.subheader("🚨 Alerts")
-
-alerts = filtered[filtered["anomaly"] == "ALERT"]
-
-if alerts.empty:
-    st.success("No major outbreaks detected")
+if avg_risk > 2000:
+    st.error("GLOBAL ALERT LEVEL: HIGH")
+elif avg_risk > 1000:
+    st.warning("GLOBAL ALERT LEVEL: MODERATE")
 else:
-    for _, row in alerts.iterrows():
-        st.error(f"{row['Country']} - HIGH RISK")
-
-# =========================
-# CHARTS (SAFE)
-# =========================
-st.subheader("📈 Risk Chart")
-
-if px:
-    fig = px.bar(filtered, x="Country", y="risk_score")
-    st.plotly_chart(fig, use_container_width=True)
-else:
-    st.bar_chart(filtered.set_index("Country")["risk_score"])
-
-# =========================
-# TABLE
-# =========================
-st.subheader("📋 Data")
-st.dataframe(filtered)
+    st.success("GLOBAL ALERT LEVEL: LOW")
 
 # =========================
 # FOOTER
 # =========================
+
 st.markdown("---")
-st.write("WHO AI System v3 | Stable Mode | No Crash Architecture")
+st.write("WHO AI v4 | Streaming + Reasoning + Microservice Architecture Prototype")
