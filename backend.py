@@ -1,58 +1,38 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
-import numpy as np
+import random
+from datetime import datetime
 
-app = FastAPI(title="WHO AI Core Engine")
-
-class CountryData(BaseModel):
-    country: str
-    cases: float
-    deaths: float
-    policy: float
+app = FastAPI()
 
 # =========================
-# RISK ENGINE
+# HEALTH RISK SERVICE
 # =========================
-@app.post("/risk")
-def compute_risk(data: CountryData):
+@app.get("/risk")
+def risk():
 
-    risk = (
-        data.cases * 0.4 +
-        data.deaths * 0.4 +
-        (100 - data.policy) * 0.2
-    )
+    countries = ["Kenya", "USA", "India", "Brazil", "Ethiopia"]
 
     return {
-        "country": data.country,
-        "risk": risk
+        "timestamp": str(datetime.utcnow()),
+        "data": [
+            {
+                "country": c,
+                "risk": random.randint(1000, 5000)
+            }
+            for c in countries
+        ]
     }
 
 # =========================
-# ANOMALY DETECTION (SIMPLE VERSION)
+# OUTBREAK NEWS SERVICE
 # =========================
-@app.post("/anomaly")
-def detect_anomaly(values: list[float]):
-
-    mean = np.mean(values)
-    std = np.std(values)
-
-    anomalies = [
-        v for v in values
-        if abs(v - mean) > 2 * std
-    ]
+@app.get("/news")
+def news():
 
     return {
-        "anomalies": anomalies
-    }
-
-# =========================
-# FORECAST ENGINE
-# =========================
-@app.post("/forecast")
-def forecast(values: list[float]):
-
-    trend = np.mean(values[-5:]) * 1.1
-
-    return {
-        "forecast": trend
+        "alerts": [
+            "WHO monitoring dengue outbreak",
+            "Cholera risk increasing in East Africa",
+            "Respiratory virus surveillance active"
+        ]
     }
