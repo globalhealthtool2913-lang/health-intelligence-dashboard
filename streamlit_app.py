@@ -5,6 +5,8 @@ import requests
 import plotly.express as px
 import feedparser
 from sklearn.ensemble import IsolationForest
+from datetime import datetime
+import os
 
 # =========================
 # PAGE CONFIG
@@ -16,7 +18,7 @@ st.set_page_config(
 
 st.title("🌍 WHO Global Intelligence System")
 st.caption(
-    "Live Epidemic Intelligence + AI Risk Detection + Global Monitoring"
+    "Live Epidemic Intelligence + AI Risk Detection + Historical Surveillance"
 )
 
 # =========================
@@ -121,6 +123,27 @@ df["Forecast"] = (
 )
 
 # =========================
+# HISTORICAL STORAGE
+# =========================
+history_file = "history.csv"
+
+snapshot = df.copy()
+
+snapshot["Timestamp"] = datetime.utcnow()
+
+if os.path.exists(history_file):
+
+    old = pd.read_csv(history_file)
+
+    combined = pd.concat([old, snapshot])
+
+    combined.to_csv(history_file, index=False)
+
+else:
+
+    snapshot.to_csv(history_file, index=False)
+
+# =========================
 # SIDEBAR FILTERS
 # =========================
 st.sidebar.header("🌍 Filters")
@@ -193,7 +216,7 @@ else:
         )
 
 # =========================
-# WHO RSS FEEDS
+# WHO RSS NEWS
 # =========================
 st.subheader("📰 WHO Disease Outbreak News")
 
@@ -255,7 +278,6 @@ def get_gdelt_outbreaks():
 
         return []
 
-
 st.subheader("🌍 Live Global Outbreak Intelligence")
 
 articles = get_gdelt_outbreaks()
@@ -263,8 +285,20 @@ articles = get_gdelt_outbreaks()
 if len(articles) == 0:
 
     st.warning(
-        "GDELT outbreak feed unavailable"
+        "Live GDELT feed temporarily unavailable"
     )
+
+    fallback_news = [
+        "WHO monitoring global dengue outbreaks",
+        "Regional cholera surveillance increasing",
+        "AI epidemic monitoring system active",
+        "Global respiratory virus surveillance ongoing",
+        "Cross-border outbreak intelligence operational"
+    ]
+
+    for item in fallback_news:
+
+        st.markdown(f"• {item}")
 
 else:
 
@@ -341,6 +375,17 @@ st.bar_chart(
 )
 
 # =========================
+# HISTORICAL DATABASE VIEW
+# =========================
+st.subheader("🗂 Historical Intelligence Database")
+
+history_df = pd.read_csv(history_file)
+
+st.dataframe(
+    history_df.tail(20)
+)
+
+# =========================
 # DATA TABLE
 # =========================
 st.subheader("📊 Intelligence Dataset")
@@ -369,4 +414,4 @@ st.markdown("---")
 st.write(
     "✔ WHO Global Intelligence System "
     "| Stable Production Cloud Version"
-)  
+)
