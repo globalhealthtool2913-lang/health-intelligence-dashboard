@@ -3,41 +3,32 @@ import pandas as pd
 import numpy as np
 import requests
 import plotly.express as px
-import feedparser
 from sklearn.ensemble import IsolationForest
 from datetime import datetime
-import queue
+from supabase import create_client
+import feedparser
 
 # =========================
-# PAGE CONFIG
+# CONFIG
 # =========================
-st.set_page_config(
-    page_title="WHO Distributed AI System",
-    layout="wide"
-)
+st.set_page_config(page_title="WHO AI Intelligence System", layout="wide")
 
-st.title("🌍 WHO Distributed AI Intelligence System")
-st.caption("Microservices + AI Agents + Event Streaming (Prototype)")
+st.title("🌍 WHO AI Global Health Intelligence System")
+st.caption("Powered by AI Agents + Supabase Memory + Global Surveillance")
 
 # =========================
-# EVENT BUS (Kafka-like simulation)
+# SUPABASE CONNECT
 # =========================
-event_bus = queue.Queue()
+SUPABASE_URL = "YOUR_SUPABASE_URL"
+SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY"
 
-def publish_event(event):
-    event_bus.put(event)
-
-def consume_events():
-    events = []
-    while not event_bus.empty():
-        events.append(event_bus.get())
-    return events
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # =========================
-# LIVE HEALTH DATA
+# LOAD HEALTH DATA
 # =========================
 @st.cache_data(ttl=120)
-def load_health_data():
+def load_data():
 
     try:
         url = "https://disease.sh/v3/covid-19/countries"
@@ -51,22 +42,23 @@ def load_health_data():
         ]]
 
         df.columns = ["Country", "Cases", "Deaths"]
-
         df["Policy"] = np.random.randint(40, 90, len(df))
 
         return df, True
 
     except:
+
         df = pd.DataFrame({
             "Country": ["Ethiopia", "Kenya", "USA", "India", "Brazil"],
             "Cases": np.random.randint(1000, 5000, 5),
             "Deaths": np.random.randint(50, 300, 5),
             "Policy": np.random.randint(40, 90, 5)
         })
+
         return df, False
 
 
-df, live = load_health_data()
+df, live = load_data()
 
 if live:
     st.success("🟢 LIVE DATA ACTIVE")
@@ -74,26 +66,21 @@ else:
     st.warning("🔴 OFFLINE MODE")
 
 # =========================
-# 🧠 AI AGENTS (MICROSERVICES STYLE)
+# AI AGENTS
 # =========================
 
 def risk_agent(df):
-
     df["risk_score"] = (
         df["Cases"] * 0.4 +
         df["Deaths"] * 0.4 +
         (100 - df["Policy"]) * 0.2
     )
-
     return df
 
 
 def anomaly_agent(df):
 
-    model = IsolationForest(
-        contamination=0.1,
-        random_state=42
-    )
+    model = IsolationForest(contamination=0.1, random_state=42)
 
     df["anomaly"] = model.fit_predict(df[["risk_score"]])
 
@@ -105,18 +92,14 @@ def anomaly_agent(df):
 
 
 def forecast_agent(df):
-
     df["forecast"] = df["risk_score"].rolling(2).mean().fillna(df["risk_score"])
-
     return df
 
 
 def orchestrator(df):
-
     df = risk_agent(df)
     df = anomaly_agent(df)
     df = forecast_agent(df)
-
     return df
 
 # =========================
@@ -125,21 +108,24 @@ def orchestrator(df):
 df = orchestrator(df)
 
 # =========================
-# SIMULATE BACKEND EVENTS
+# SUPABASE SAVE FUNCTION
 # =========================
-for _, row in df.iterrows():
+def save_to_supabase(df):
 
-    if row["anomaly"] == "ALERT":
+    for _, row in df.iterrows():
 
-        publish_event({
-            "type": "OUTBREAK_ALERT",
+        supabase.table("outbreak_history").insert({
             "country": row["Country"],
-            "risk": float(row["risk_score"]),
-            "time": str(datetime.utcnow())
-        })
+            "risk_score": float(row["risk_score"]),
+            "anomaly": row["anomaly"],
+            "timestamp": str(datetime.utcnow())
+        }).execute()
+
+# SAVE DATA
+save_to_supabase(df)
 
 # =========================
-# SIDEBAR FILTERS
+# FILTERS
 # =========================
 st.sidebar.header("🌍 Filters")
 
@@ -150,7 +136,7 @@ countries = st.sidebar.multiselect(
 )
 
 min_risk = st.sidebar.slider(
-    "Minimum Risk",
+    "Minimum Risk Score",
     0,
     int(df["risk_score"].max()),
     0
@@ -172,20 +158,20 @@ c3.metric("Max Risk", round(filtered["risk_score"].max(), 2))
 c4.metric("Alerts", int((filtered["anomaly"] == "ALERT").sum()))
 
 # =========================
-# ALERT SYSTEM
+# ALERTS
 # =========================
-st.subheader("🚨 Live Outbreak Alerts")
+st.subheader("🚨 Outbreak Alerts")
 
 alerts = filtered[filtered["anomaly"] == "ALERT"]
 
 if alerts.empty:
-    st.success("No active outbreaks detected")
+    st.success("No critical outbreaks detected")
 else:
     for _, row in alerts.iterrows():
         st.error(f"{row['Country']} → HIGH RISK ({row['risk_score']:.2f})")
 
 # =========================
-# WHO RSS FEED
+# WHO FEED
 # =========================
 st.subheader("📰 WHO Intelligence Feed")
 
@@ -194,27 +180,11 @@ try:
         "https://www.who.int/feeds/entity/csr/don/en/rss.xml"
     )
 
-    for entry in feed.entries[:5]:
-        st.markdown(f"• {entry.title}")
+    for e in feed.entries[:5]:
+        st.markdown(f"• {e.title}")
 
 except:
     st.warning("WHO feed unavailable")
-
-# =========================
-# EVENT STREAM (KAFKA-LIKE)
-# =========================
-st.subheader("📡 Event Stream (Kafka Simulation)")
-
-events = consume_events()
-
-if events:
-
-    for e in events:
-
-        st.write(e)
-
-else:
-    st.info("No active outbreak events")
 
 # =========================
 # GLOBAL MAP
@@ -225,49 +195,34 @@ fig = px.choropleth(
     filtered,
     locations="Country",
     locationmode="country names",
-    color="risk_score",
-    hover_name="Country"
+    color="risk_score"
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
 # =========================
-# FORECASTING
+# FORECAST
 # =========================
-st.subheader("📈 Forecast Engine")
+st.subheader("📈 Forecast")
 
 st.bar_chart(filtered.set_index("Country")["forecast"])
 
 # =========================
-# AI SUMMARY AGENT
+# DATA
 # =========================
-st.subheader("🧠 AI Situation Report")
-
-top = filtered.sort_values("risk_score", ascending=False).head(3)
-
-summary = " ".join([
-    f"{r['Country']} shows elevated epidemic risk."
-    for _, r in top.iterrows()
-])
-
-st.info(summary)
-
-# =========================
-# DATA TABLE
-# =========================
-st.subheader("📊 Intelligence Dataset")
+st.subheader("📊 Dataset")
 
 st.dataframe(filtered)
 
 # =========================
-# EXPORT
+# DOWNLOAD
 # =========================
 csv = filtered.to_csv(index=False).encode()
 
 st.download_button(
-    "⬇ Export Intelligence Report",
+    "⬇ Export Report",
     csv,
-    "who_distributed_system.csv",
+    "who_ai_report.csv",
     "text/csv"
 )
 
@@ -275,4 +230,4 @@ st.download_button(
 # FOOTER
 # =========================
 st.markdown("---")
-st.write("WHO Distributed AI System | Microservices Prototype")
+st.write("WHO AI Intelligence System | Supabase Powered")
