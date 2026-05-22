@@ -17,13 +17,15 @@ st.set_page_config(
 # =========================================
 
 st.title("🌍 WHO AI Enterprise Intelligence Platform")
-st.caption("FREE Streamlit Cloud Version (Stable Simulation Mode)")
+st.caption("Stable Simulation Mode (Streamlit Cloud Ready)")
+
+st.divider()
 
 # =========================================
-# SIMULATED GLOBAL DATA
+# SIMULATED DATA (SAFE FOR STREAMLIT CLOUD)
 # =========================================
 
-def get_data():
+def load_data():
 
     return [
         {"country": "Ethiopia", "cases": 2983, "deaths": 68, "risk": "MODERATE", "prediction": "STABLE", "source": "WHO"},
@@ -33,7 +35,7 @@ def get_data():
         {"country": "USA", "cases": 8450, "deaths": 310, "risk": "HIGH", "prediction": "SPREADING", "source": "GDELT"}
     ]
 
-data = get_data()
+data = load_data()
 df = pd.DataFrame(data)
 
 # =========================================
@@ -47,24 +49,31 @@ col2.metric("System Status", "ACTIVE")
 col3.metric("Architecture", "SIMULATED")
 col4.metric("AI Engine", "READY")
 
+st.divider()
+
 # =========================================
-# GLOBAL DASHBOARD
+# GLOBAL TABLE
 # =========================================
 
 st.subheader("🌍 Global Surveillance Dashboard")
 
 st.dataframe(df, use_container_width=True)
 
+st.divider()
+
 # =========================================
-# CLEAN RISK DISTRIBUTION (FIXED BUG)
+# CLEAN RISK DISTRIBUTION (FIXED)
 # =========================================
 
 st.subheader("🚨 Risk Distribution")
 
-risk_counts = df["risk"].value_counts().reset_index()
-risk_counts.columns = ["Risk Level", "Count"]
+risk_counts = df["risk"].value_counts()
 
-st.bar_chart(risk_counts.set_index("Risk Level"))
+st.dataframe(risk_counts)
+
+st.bar_chart(risk_counts)
+
+st.divider()
 
 # =========================================
 # COUNTRY INTELLIGENCE
@@ -76,8 +85,10 @@ country_stats = df.groupby("country")[["cases", "deaths"]].sum()
 
 st.dataframe(country_stats, use_container_width=True)
 
+st.divider()
+
 # =========================================
-# AI EPIDEMIOLOGY ENGINE PANEL
+# AI EPIDEMIOLOGY ENGINE
 # =========================================
 
 st.subheader("🧠 WHO AI Epidemiology Engine")
@@ -100,35 +111,36 @@ st.info(
 """
 )
 
+st.divider()
+
 # =========================================
-# LIVE STREAM SIMULATION
+# LIVE STREAM (CLEAN + FIXED)
 # =========================================
 
 st.subheader("🔄 Live Global Stream")
 
-placeholder = st.empty()
+stream_placeholder = st.container()
 
-for i in range(len(df)):
+for _, row in df.iterrows():
 
-    item = df.iloc[i]
-
-    with placeholder.container():
+    with stream_placeholder:
 
         st.write(
-            f"🌍 **{item['country']}** | "
-            f"📊 Cases: {item['cases']} | "
-            f"⚰️ Deaths: {item['deaths']} | "
-            f"🚨 Risk: {item['risk']} | "
-            f"🧠 Prediction: {item['prediction']} | "
-            f"📡 Source: {item['source']}"
+            f"🌍 **{row['country']}** | "
+            f"📊 Cases: {row['cases']} | "
+            f"⚰️ Deaths: {row['deaths']} | "
+            f"🚨 Risk: {row['risk']} | "
+            f"🧠 Prediction: {row['prediction']} | "
+            f"📡 Source: {row['source']}"
         )
 
     time.sleep(0.3)
 
+st.divider()
+
 # =========================================
-# AUTO REFRESH
+# FOOTER AUTO REFRESH
 # =========================================
 
-time.sleep(6)
+time.sleep(5)
 st.rerun()
-    
