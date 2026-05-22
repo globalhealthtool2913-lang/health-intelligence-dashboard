@@ -1,8 +1,6 @@
 streamlit
 pandas
-numpy
-plotly
 requests
-feedparser
-scikit-learn
-supabase
+plotly
+numpy
+openai
