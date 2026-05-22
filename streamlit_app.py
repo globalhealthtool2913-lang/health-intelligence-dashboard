@@ -1,8 +1,10 @@
 import streamlit as st
 import requests
 import pandas as pd
+import time
 import plotly.express as px
-from datetime import datetime
+import numpy as np
+from openai import OpenAI
 
 # =========================
 # CONFIG
@@ -10,71 +12,160 @@ from datetime import datetime
 
 API_BASE = "https://Globalhealthtool.pythonanywhere.com"
 
+OPENAI_API_KEY = "YOUR_OPENAI_API_KEY"
+
+client = OpenAI(api_key=OPENAI_API_KEY)
+
+# Telegram (optional alerts)
+BOT_TOKEN = "YOUR_BOT_TOKEN"
+CHAT_ID = "YOUR_CHAT_ID"
+
 st.set_page_config(
-    page_title="WHO AI Global Surveillance System",
+    page_title="WHO AI Global Intelligence System",
     page_icon="🌍",
     layout="wide"
 )
 
 # =========================
-# TITLE
+# GPT MEDICAL ANALYST
 # =========================
 
-st.title("🌍 WHO AI Global Surveillance System")
-st.markdown("Real-Time WHO + GDELT + AI Epidemiology Intelligence")
+def gpt_analysis(country, cases, deaths):
+
+    prompt = f"""
+    You are a WHO epidemiologist.
+
+    Analyze outbreak:
+    Country: {country}
+    Cases: {cases}
+    Deaths: {deaths}
+
+    Provide:
+    - Risk level
+    - Transmission pattern
+    - Public health recommendation
+    """
+
+    try:
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        return response.choices[0].message.content
+
+    except:
+
+        return "AI analysis unavailable"
 
 # =========================
-# FETCH DATA
+# TELEGRAM ALERT SYSTEM
 # =========================
 
-def get_data():
+def send_alert(msg):
+
+    try:
+
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+
+        requests.post(url, data={
+            "chat_id": CHAT_ID,
+            "text": msg
+        })
+
+    except:
+        pass
+
+# =========================
+# FETCH BACKEND DATA
+# =========================
+
+def fetch_data():
+
     try:
         return requests.get(f"{API_BASE}/events").json()
     except:
         return []
 
-def get_diseases():
-    try:
-        return requests.get(f"{API_BASE}/diseases").json()
-    except:
-        return {}
+# =========================
+# PREDICTION MODEL (RISK ENGINE)
+# =========================
 
-data = get_data()
-disease_data = get_diseases()
+def predict_risk(cases, deaths):
 
+    score = (cases * 0.6) + (deaths * 3)
+
+    if score > 5000:
+        return "CRITICAL"
+    elif score > 2500:
+        return "HIGH"
+    elif score > 1000:
+        return "MODERATE"
+    else:
+        return "LOW"
+
+# =========================
+# STREAMING ENGINE
+# =========================
+
+def stream_engine(df):
+
+    st.subheader("🔄 Real-Time Intelligence Stream")
+
+    if df.empty:
+        st.warning("No data available")
+        return
+
+    for _, row in df.tail(10).iterrows():
+
+        risk = predict_risk(row["cases"], row["deaths"])
+
+        if risk == "CRITICAL":
+
+            send_alert(
+                f"🚨 WHO ALERT\n{row['country']}\nCases: {row['cases']}\nDeaths: {row['deaths']}"
+            )
+
+        st.warning(
+            f"{row['country']} | Cases: {row['cases']} | Deaths: {row['deaths']} | Risk: {risk}"
+        )
+
+# =========================
+# MAIN APP
+# =========================
+
+st.title("🌍 WHO AI Global Intelligence System")
+
+data = fetch_data()
 df = pd.DataFrame(data) if data else pd.DataFrame()
 
 # =========================
-# GLOBAL STATUS
+# GLOBAL METRICS
 # =========================
 
-st.subheader("🛰️ Global Surveillance Status")
+st.subheader("📊 Global Intelligence Dashboard")
 
 col1, col2, col3 = st.columns(3)
 
-col1.metric("Active Signals", len(df))
-col2.metric("Last Update", str(datetime.now().strftime("%H:%M:%S")))
-col3.metric("Data Sources", "WHO + GDELT")
+col1.metric("Signals", len(df))
+
+if not df.empty:
+    col2.metric("Latest Country", df.iloc[-1]["country"])
+    col3.metric("Max Cases", df["cases"].max())
+else:
+    col2.metric("Latest Country", "N/A")
+    col3.metric("Max Cases", 0)
 
 # =========================
-# DISEASE BREAKDOWN
+# 🌍 GLOBAL MAP
 # =========================
 
-st.subheader("🧬 Disease Intelligence Breakdown")
-
-if disease_data:
-
-    st.json(disease_data)
-
-# =========================
-# GLOBAL MAP (SIMULATED SURVEILLANCE)
-# =========================
-
-st.subheader("🌍 Global Surveillance Map")
+st.subheader("🌍 Global Risk Map")
 
 if not df.empty:
 
-    country_coords = {
+    coords = {
         "Ethiopia": [9.03, 38.74],
         "Kenya": [-1.29, 36.82],
         "Nigeria": [9.08, 8.67],
@@ -82,44 +173,23 @@ if not df.empty:
         "Brazil": [-14.23, -51.92]
     }
 
-    df["lat"] = df["country"].apply(lambda x: country_coords.get(x, [0,0])[0])
-    df["lon"] = df["country"].apply(lambda x: country_coords.get(x, [0,0])[1])
+    df["lat"] = df["country"].apply(lambda x: coords.get(x, [0,0])[0])
+    df["lon"] = df["country"].apply(lambda x: coords.get(x, [0,0])[1])
 
     fig = px.scatter_geo(
         df,
         lat="lat",
         lon="lon",
-        size="cases" if "cases" in df.columns else None,
+        size="cases",
+        color="deaths",
         hover_name="country",
-        title="WHO Global Risk Map"
+        title="WHO Global Surveillance Map"
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
 # =========================
-# 🔔 MOBILE ALERT SYSTEM
-# =========================
-
-st.subheader("🔔 Mobile Alert System")
-
-if not df.empty:
-
-    alerts = df[df["cases"] > 2500]
-
-    if not alerts.empty:
-
-        for _, row in alerts.iterrows():
-
-            st.error(
-                f"🚨 ALERT: {row['country']} | "
-                f"Cases: {row['cases']} | "
-                f"Deaths: {row['deaths']}"
-            )
-    else:
-        st.success("No critical alerts detected")
-
-# =========================
-# 🧠 GPT MEDICAL ANALYST (SIMULATED AI REASONING)
+# 🧠 GPT MEDICAL ANALYST
 # =========================
 
 st.subheader("🧠 GPT Medical Analyst")
@@ -128,71 +198,43 @@ if not df.empty:
 
     latest = df.iloc[-1]
 
-    cases = latest.get("cases", 0)
-    deaths = latest.get("deaths", 0)
+    analysis = gpt_analysis(
+        latest["country"],
+        latest["cases"],
+        latest["deaths"]
+    )
 
-    mortality = round((deaths / cases) * 100, 2) if cases else 0
-
-    if cases > 4000:
-        spread = "Very High Transmission"
-    elif cases > 2000:
-        spread = "Moderate Transmission"
-    else:
-        spread = "Controlled Transmission"
-
-    if mortality > 5:
-        severity = "Severe"
-    elif mortality > 2:
-        severity = "Moderate"
-    else:
-        severity = "Low"
-
-    st.info(f"""
-### 🧠 AI Epidemiology Report
-
-Country: {latest.get('country')}
-
-Transmission: {spread}
-
-Severity: {severity}
-
-Mortality Rate: {mortality}%
-
-### AI Interpretation:
-The outbreak in {latest.get('country')} shows {spread.lower()} with {severity.lower()} severity.
-Immediate surveillance and regional coordination recommended.
-
-This analysis is generated from WHO + GDELT intelligence streams.
-""")
+    st.info(analysis)
 
 # =========================
-# 🌐 GLOBAL SURVEILLANCE FEED
+# 📈 PREDICTION ENGINE
 # =========================
 
-st.subheader("🌐 Global Surveillance Feed")
+st.subheader("📈 Outbreak Prediction Engine")
 
 if not df.empty:
 
-    for _, row in df.tail(10).iterrows():
+    df["risk_score"] = df.apply(
+        lambda r: (r["cases"] * 0.6) + (r["deaths"] * 3),
+        axis=1
+    )
 
-        st.warning(
-            f"🌍 {row['country']} | "
-            f"Cases: {row['cases']} | "
-            f"Deaths: {row['deaths']}"
-        )
+    df["risk_level"] = df.apply(
+        lambda r: predict_risk(r["cases"], r["deaths"]),
+        axis=1
+    )
+
+    st.dataframe(df)
 
 # =========================
-# 📊 RAW DATA VIEW
+# 🔄 STREAM ENGINE
 # =========================
 
-st.subheader("📊 Raw Intelligence Data")
-
-st.dataframe(df)
+stream_engine(df)
 
 # =========================
 # AUTO REFRESH
 # =========================
 
-st.caption("Auto-refresh every 10 seconds")
-
+time.sleep(10)
 st.rerun()
