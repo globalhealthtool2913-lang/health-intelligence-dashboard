@@ -17,7 +17,7 @@ st.set_page_config(
 )
 
 st.title("🌍 WHO AI Enterprise Intelligence Platform")
-st.caption("Full AI + WHO + GDELT + Heatmap + Alerts + Forecasting")
+st.caption("Stable Real-Time WHO + GDELT + AI Monitoring System")
 
 st.divider()
 
@@ -29,14 +29,13 @@ def fetch_data():
 
     data = []
 
-    # WHO DATA
+    # WHO RSS
     try:
         feed = feedparser.parse(
             "https://www.who.int/feeds/entity/csr/don/en/rss.xml"
         )
 
         for entry in feed.entries[:3]:
-
             data.append({
                 "country": "Global",
                 "cases": 4000,
@@ -48,7 +47,7 @@ def fetch_data():
     except:
         pass
 
-    # GDELT DATA
+    # GDELT API
     try:
         url = "https://api.gdeltproject.org/api/v2/doc/doc?query=disease&mode=ArtList&format=json"
         r = requests.get(url, timeout=10)
@@ -57,7 +56,6 @@ def fetch_data():
             j = r.json()
 
             for a in j.get("articles", [])[:3]:
-
                 data.append({
                     "country": "Global",
                     "cases": 6000,
@@ -69,9 +67,8 @@ def fetch_data():
     except:
         pass
 
-    # FALLBACK SAFETY
+    # SAFE FALLBACK
     if len(data) == 0:
-
         data = [{
             "country": "Ethiopia",
             "cases": 2983,
@@ -83,7 +80,7 @@ def fetch_data():
     return data
 
 # =========================================
-# AI PREDICTION ENGINE
+# AI ENGINE
 # =========================================
 
 def predict(cases, deaths):
@@ -98,25 +95,6 @@ def predict(cases, deaths):
         return "STABLE", "LOW"
 
 # =========================================
-# TELEGRAM ALERT SYSTEM (OPTIONAL)
-# =========================================
-
-def send_telegram(msg):
-
-    bot_token = "YOUR_BOT_TOKEN"
-    chat_id = "YOUR_CHAT_ID"
-
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-
-    try:
-        requests.post(url, json={
-            "chat_id": chat_id,
-            "text": msg
-        })
-    except:
-        pass
-
-# =========================================
 # LOAD DATA
 # =========================================
 
@@ -129,7 +107,7 @@ for col in ["country", "cases", "deaths", "source", "event"]:
         df[col] = "UNKNOWN"
 
 # =========================================
-# APPLY AI + FORECASTING
+# APPLY AI
 # =========================================
 
 results = []
@@ -141,12 +119,6 @@ for _, row in df.iterrows():
 
     pred, risk = predict(cases, deaths)
 
-    forecast = "CONTROLLED"
-    if cases > 7000:
-        forecast = "EXPONENTIAL GROWTH"
-    elif cases > 4000:
-        forecast = "MODERATE SPREAD"
-
     results.append({
         "country": row["country"],
         "cases": cases,
@@ -155,7 +127,7 @@ for _, row in df.iterrows():
         "event": row["event"],
         "prediction": pred,
         "risk": risk,
-        "forecast": forecast
+        "forecast": "MODERATE SPREAD" if cases > 4000 else "CONTROLLED"
     })
 
 df = pd.DataFrame(results)
@@ -169,12 +141,12 @@ col1, col2, col3, col4 = st.columns(4)
 col1.metric("Live Events", len(df))
 col2.metric("System Status", "ACTIVE")
 col3.metric("AI Engine", "ENTERPRISE")
-col4.metric("Mode", "FULL SYSTEM")
+col4.metric("Mode", "STABLE")
 
 st.divider()
 
 # =========================================
-# GLOBAL DASHBOARD
+# DASHBOARD TABLE
 # =========================================
 
 st.subheader("🌍 Global Surveillance Dashboard")
@@ -202,7 +174,7 @@ with col2:
 st.divider()
 
 # =========================================
-# AI ANALYSIS ENGINE
+# AI ANALYSIS
 # =========================================
 
 st.subheader("🧠 AI Epidemiology Engine")
@@ -231,7 +203,7 @@ st.subheader("🌍 Global Heatmap")
 
 map_df = df.copy()
 
-map_df["lat"] = np.random.uniform(-50, 70, len(map_df))
+map_df["lat"] = np.random.uniform(-60, 80, len(map_df))
 map_df["lon"] = np.random.uniform(-120, 120, len(map_df))
 
 fig = px.scatter_geo(
@@ -241,7 +213,7 @@ fig = px.scatter_geo(
     color="risk",
     size="cases",
     hover_name="country",
-    title="Global Disease Heatmap"
+    title="Global Disease Heatmap (AI Simulation)"
 )
 
 st.plotly_chart(fig, use_container_width=True)
@@ -249,7 +221,7 @@ st.plotly_chart(fig, use_container_width=True)
 st.divider()
 
 # =========================================
-# LIVE STREAM ENGINE
+# LIVE STREAM
 # =========================================
 
 st.subheader("🔄 Live Global Stream")
@@ -259,7 +231,6 @@ placeholder = st.empty()
 for _, row in df.iterrows():
 
     with placeholder:
-
         st.write(
             f"🌍 **{row['country']}** | "
             f"📊 {row['cases']} | "
@@ -271,28 +242,13 @@ for _, row in df.iterrows():
             f"📰 {row['event']}"
         )
 
-    time.sleep(0.5)
+    time.sleep(0.3)
 
 st.divider()
-
-# =========================================
-# TELEGRAM ALERT TRIGGER
-# =========================================
-
-high_risk = df[df["risk"] == "HIGH"]
-
-for _, row in high_risk.iterrows():
-
-    send_telegram(
-        f"🚨 WHO AI ALERT\n"
-        f"{row['country']}\n"
-        f"Risk: {row['risk']}\n"
-        f"Cases: {row['cases']}"
-    )
 
 # =========================================
 # AUTO REFRESH
 # =========================================
 
-time.sleep(6)
+time.sleep(5)
 st.rerun()
