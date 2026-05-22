@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 import time
+import plotly.express as px
 
 # =========================
 # CONFIG
@@ -20,214 +21,174 @@ st.set_page_config(
 # =========================
 
 st.title("🌍 WHO AI Intelligence System")
-
-st.markdown("""
-Real-time epidemic intelligence, outbreak monitoring,
-and AI epidemiology analysis platform.
-""")
+st.markdown("Next-Gen Global Epidemic Intelligence Platform")
 
 # =========================
-# SIDEBAR
+# FETCH DATA
 # =========================
 
-st.sidebar.title("🧠 WHO AI Control Center")
+def fetch_data():
+    try:
+        res = requests.get(f"{API_BASE}/events")
+        return res.json()
+    except:
+        return []
 
-refresh = st.sidebar.slider(
-    "Refresh interval (seconds)",
-    5,
-    60,
-    10
-)
+data = fetch_data()
 
-risk_threshold = st.sidebar.slider(
-    "High Risk Case Threshold",
-    1000,
-    10000,
-    3000
-)
+df = pd.DataFrame(data) if data else pd.DataFrame()
 
 # =========================
-# LIVE STATUS
+# KPI SECTION
 # =========================
 
-st.subheader("🟢 System Status")
+st.subheader("📊 Global Outbreak Overview")
 
-col1, col2, col3 = st.columns(3)
+if not df.empty:
 
-col1.success("Backend Online")
-col2.success("AI Monitoring Active")
-col3.success("Outbreak Stream Running")
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("Total Records", len(df))
+    col2.metric("Latest Country", df.iloc[-1]["country"])
+    col3.metric("Max Cases", df["cases"].max())
+    col4.metric("Max Deaths", df["deaths"].max())
+
+else:
+    st.warning("No data available from backend")
 
 # =========================
-# LIVE OUTBREAK STREAM
+# 🌍 GLOBAL HEATMAP (SIMULATED)
 # =========================
 
-st.subheader("🔴 Live Global Outbreak Intelligence")
+st.subheader("🌍 Global Outbreak Heatmap")
 
-try:
+if not df.empty:
 
-    response = requests.get(f"{API_BASE}/events")
-    outbreaks = response.json()
+    # Simple mapping (expandable to real geo later)
+    country_map = {
+        "Ethiopia": [9.03, 38.74],
+        "Kenya": [-1.29, 36.82],
+        "Nigeria": [9.08, 8.67],
+        "India": [20.59, 78.96],
+        "Brazil": [-14.23, -51.92]
+    }
 
-    if outbreaks:
+    df["lat"] = df["country"].apply(lambda x: country_map.get(x, [0,0])[0])
+    df["lon"] = df["country"].apply(lambda x: country_map.get(x, [0,0])[1])
 
-        latest = outbreaks[-1]
+    fig = px.scatter_geo(
+        df,
+        lat="lat",
+        lon="lon",
+        size="cases",
+        color="deaths",
+        hover_name="country",
+        title="Global Outbreak Intensity Map"
+    )
 
-        # =========================
-        # METRICS
-        # =========================
+    st.plotly_chart(fig, use_container_width=True)
 
-        m1, m2, m3 = st.columns(3)
+# =========================
+# 🔔 SMART ALERT SYSTEM
+# =========================
 
-        m1.metric(
-            "Latest Country",
-            latest["country"]
-        )
+st.subheader("🔔 Smart Risk Alerts")
 
-        m2.metric(
-            "Cases",
-            latest["cases"]
-        )
+if not df.empty:
 
-        m3.metric(
-            "Deaths",
-            latest["deaths"]
-        )
+    alerts = df[df["cases"] > 2500]
 
-        # =========================
-        # TABLE
-        # =========================
+    if not alerts.empty:
 
-        st.subheader("📊 Outbreak Data")
+        for _, row in alerts.iterrows():
 
-        df = pd.DataFrame(outbreaks)
-
-        st.dataframe(
-            df,
-            use_container_width=True
-        )
-
-        # =========================
-        # HIGH RISK ALERTS
-        # =========================
-
-        st.subheader("🚨 AI High-Risk Alerts")
-
-        high_risk = []
-
-        for outbreak in outbreaks:
-
-            if outbreak["cases"] > risk_threshold:
-
-                high_risk.append(outbreak)
-
-        if high_risk:
-
-            for outbreak in reversed(high_risk):
-
-                st.error(
-                    f"⚠️ HIGH RISK: "
-                    f"{outbreak['country']} | "
-                    f"Cases: {outbreak['cases']} | "
-                    f"Deaths: {outbreak['deaths']}"
-                )
-
-        else:
-
-            st.success("No high-risk outbreaks detected.")
-
-        # =========================
-        # AI EPIDEMIOLOGY ANALYSIS
-        # =========================
-
-        st.subheader("🧠 GPT Epidemiology Reasoning")
-
-        latest_cases = latest["cases"]
-        latest_deaths = latest["deaths"]
-
-        mortality_rate = round(
-            (latest_deaths / latest_cases) * 100,
-            2
-        )
-
-        if latest_cases > 4000:
-
-            transmission = "Very High"
-
-        elif latest_cases > 2000:
-
-            transmission = "Moderate"
-
-        else:
-
-            transmission = "Controlled"
-
-        if mortality_rate > 5:
-
-            severity = "Severe"
-
-        elif mortality_rate > 2:
-
-            severity = "Moderate"
-
-        else:
-
-            severity = "Low"
-
-        st.info(f"""
-### WHO AI Epidemiology Assessment
-
-Country: {latest['country']}
-
-Estimated Transmission Level: {transmission}
-
-Estimated Severity: {severity}
-
-Mortality Rate: {mortality_rate}%
-
-AI Interpretation:
-The outbreak demonstrates {transmission.lower()} transmission dynamics
-with {severity.lower()} clinical severity indicators.
-Cross-border surveillance and regional preparedness are recommended.
-""")
-
-        # =========================
-        # STREAMING FEED
-        # =========================
-
-        st.subheader("📡 Live Intelligence Feed")
-
-        for outbreak in reversed(outbreaks[-10:]):
-
-            st.warning(
-                f"🌍 {outbreak['country']} | "
-                f"{outbreak['cases']} cases | "
-                f"{outbreak['deaths']} deaths"
+            st.error(
+                f"⚠️ HIGH RISK: {row['country']} | "
+                f"Cases: {row['cases']} | "
+                f"Deaths: {row['deaths']}"
             )
 
     else:
-
-        st.warning("No outbreak data available.")
-
-except Exception as e:
-
-    st.error("❌ Backend connection failed")
-    st.text(str(e))
+        st.success("No high-risk outbreaks detected")
 
 # =========================
-# FOOTER
+# 🧠 GPT EPIDEMIOLOGY BRAIN
 # =========================
 
-st.markdown("---")
+st.subheader("🧠 AI Epidemiology Brain")
 
-st.caption("""
-WHO AI Intelligence Platform • Real-Time Epidemic Intelligence •
-Global Health Surveillance System
+if not df.empty:
+
+    latest = df.iloc[-1]
+
+    cases = latest["cases"]
+    deaths = latest["deaths"]
+
+    mortality = round((deaths / cases) * 100, 2)
+
+    if cases > 4000:
+        spread = "Very High Transmission"
+    elif cases > 2000:
+        spread = "Moderate Transmission"
+    else:
+        spread = "Controlled Spread"
+
+    if mortality > 5:
+        severity = "Severe"
+    elif mortality > 2:
+        severity = "Moderate"
+    else:
+        severity = "Low"
+
+    st.info(f"""
+### WHO AI ANALYSIS REPORT
+
+Country: {latest['country']}
+
+Transmission Level: {spread}
+
+Severity Level: {severity}
+
+Mortality Rate: {mortality}%
+
+### Interpretation:
+This outbreak shows {spread.lower()} dynamics with {severity.lower()} clinical impact.
+Recommend enhanced surveillance and regional coordination.
 """)
+
+# =========================
+# 📈 PREDICTION ENGINE (SIMPLE AI MODEL)
+# =========================
+
+st.subheader("📈 Outbreak Risk Prediction Engine")
+
+if not df.empty:
+
+    df["risk_score"] = (df["cases"] * 0.7) + (df["deaths"] * 2)
+
+    top_risk = df.sort_values("risk_score", ascending=False).head(5)
+
+    st.write("Top 5 High-Risk Regions:")
+
+    st.dataframe(top_risk)
+
+# =========================
+# 🌐 LIVE FEED
+# =========================
+
+st.subheader("🌐 Live Outbreak Feed")
+
+if not df.empty:
+
+    for _, row in df.tail(10).iterrows():
+
+        st.warning(
+            f"{row['country']} | Cases: {row['cases']} | Deaths: {row['deaths']}"
+        )
 
 # =========================
 # AUTO REFRESH
 # =========================
 
-time.sleep(refresh)
+time.sleep(10)
 st.rerun()
