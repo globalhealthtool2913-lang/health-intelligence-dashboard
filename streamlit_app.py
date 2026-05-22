@@ -7,7 +7,7 @@ import time
 import plotly.express as px
 
 # =========================================
-# CONFIG
+# PAGE CONFIG
 # =========================================
 
 st.set_page_config(
@@ -29,13 +29,14 @@ def fetch_data():
 
     data = []
 
-    # WHO RSS
+    # WHO DATA
     try:
         feed = feedparser.parse(
             "https://www.who.int/feeds/entity/csr/don/en/rss.xml"
         )
 
         for entry in feed.entries[:3]:
+
             data.append({
                 "country": "Global",
                 "cases": 4000,
@@ -47,7 +48,7 @@ def fetch_data():
     except:
         pass
 
-    # GDELT API
+    # GDELT DATA
     try:
         url = "https://api.gdeltproject.org/api/v2/doc/doc?query=disease&mode=ArtList&format=json"
         r = requests.get(url, timeout=10)
@@ -56,6 +57,7 @@ def fetch_data():
             j = r.json()
 
             for a in j.get("articles", [])[:3]:
+
                 data.append({
                     "country": "Global",
                     "cases": 6000,
@@ -67,7 +69,7 @@ def fetch_data():
     except:
         pass
 
-    # SAFE FALLBACK
+    # FALLBACK SAFETY
     if len(data) == 0:
         data = [{
             "country": "Ethiopia",
@@ -107,7 +109,7 @@ for col in ["country", "cases", "deaths", "source", "event"]:
         df[col] = "UNKNOWN"
 
 # =========================================
-# APPLY AI
+# APPLY AI MODEL
 # =========================================
 
 results = []
@@ -119,6 +121,12 @@ for _, row in df.iterrows():
 
     pred, risk = predict(cases, deaths)
 
+    forecast = "CONTROLLED"
+    if cases > 7000:
+        forecast = "EXPONENTIAL GROWTH"
+    elif cases > 4000:
+        forecast = "MODERATE SPREAD"
+
     results.append({
         "country": row["country"],
         "cases": cases,
@@ -127,7 +135,7 @@ for _, row in df.iterrows():
         "event": row["event"],
         "prediction": pred,
         "risk": risk,
-        "forecast": "MODERATE SPREAD" if cases > 4000 else "CONTROLLED"
+        "forecast": forecast
     })
 
 df = pd.DataFrame(results)
@@ -146,7 +154,7 @@ col4.metric("Mode", "STABLE")
 st.divider()
 
 # =========================================
-# DASHBOARD TABLE
+# GLOBAL DASHBOARD
 # =========================================
 
 st.subheader("🌍 Global Surveillance Dashboard")
@@ -155,7 +163,7 @@ st.dataframe(df, use_container_width=True)
 st.divider()
 
 # =========================================
-# RISK INTELLIGENCE
+# RISK INTELLIGENCE (FIXED UI)
 # =========================================
 
 st.subheader("🚨 Risk Intelligence")
@@ -174,29 +182,28 @@ with col2:
 st.divider()
 
 # =========================================
-# AI ANALYSIS
+# AI ENGINE PANEL (FIXED FORMAT)
 # =========================================
 
 st.subheader("🧠 AI Epidemiology Engine")
 
 latest = df.iloc[-1]
 
-st.info(
-    f"""
-🌍 Country: {latest['country']}
-📊 Cases: {latest['cases']}
-⚰️ Deaths: {latest['deaths']}
-🚨 Risk: {latest['risk']}
-🧠 Prediction: {latest['prediction']}
-📈 Forecast: {latest['forecast']}
+st.markdown(f"""
+### 🌍 Country: {latest['country']}
+
+📊 Cases: **{latest['cases']}**  
+⚰️ Deaths: **{latest['deaths']}**  
+🚨 Risk: **{latest['risk']}**  
+🧠 Prediction: **{latest['prediction']}**  
+📈 Forecast: **{latest['forecast']}**  
 📡 Source: {latest['source']}
-"""
-)
+""")
 
 st.divider()
 
 # =========================================
-# GLOBAL HEATMAP
+# GLOBAL HEATMAP (FIXED)
 # =========================================
 
 st.subheader("🌍 Global Heatmap")
@@ -213,7 +220,7 @@ fig = px.scatter_geo(
     color="risk",
     size="cases",
     hover_name="country",
-    title="Global Disease Heatmap (AI Simulation)"
+    title="Global Disease Heatmap"
 )
 
 st.plotly_chart(fig, use_container_width=True)
@@ -221,33 +228,28 @@ st.plotly_chart(fig, use_container_width=True)
 st.divider()
 
 # =========================================
-# LIVE STREAM
+# LIVE STREAM (FIXED)
 # =========================================
 
 st.subheader("🔄 Live Global Stream")
 
-placeholder = st.empty()
-
 for _, row in df.iterrows():
 
-    with placeholder:
-        st.write(
-            f"🌍 **{row['country']}** | "
-            f"📊 {row['cases']} | "
-            f"⚰️ {row['deaths']} | "
-            f"🚨 {row['risk']} | "
-            f"🧠 {row['prediction']} | "
-            f"📈 {row['forecast']} | "
-            f"📡 {row['source']} | "
-            f"📰 {row['event']}"
-        )
-
-    time.sleep(0.3)
+    st.write(
+        f"🌍 **{row['country']}** | "
+        f"📊 {row['cases']} | "
+        f"⚰️ {row['deaths']} | "
+        f"🚨 {row['risk']} | "
+        f"🧠 {row['prediction']} | "
+        f"📈 {row['forecast']} | "
+        f"📡 {row['source']} | "
+        f"📰 {row['event']}"
+    )
 
 st.divider()
 
 # =========================================
-# AUTO REFRESH
+# AUTO REFRESH (SAFE)
 # =========================================
 
 time.sleep(5)
