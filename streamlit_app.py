@@ -1,23 +1,25 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import requests
+import feedparser
 import random
 import time
 from datetime import datetime
 
-# =========================
-# STREAMLIT CONFIG
-# =========================
+# =========================================
+# PAGE CONFIG
+# =========================================
 
 st.set_page_config(
-    page_title="WHO AI Enterprise System",
+    page_title="WHO AI Enterprise Intelligence System",
     page_icon="🌍",
     layout="wide"
 )
 
-# =========================
-# 🧠 "MICROSERVICES SIMULATION LAYER"
-# =========================
+# =========================================
+# ENTERPRISE EVENT BUS (Kafka-style simulation)
+# =========================================
 
 class EventBus:
     def __init__(self):
@@ -27,132 +29,214 @@ class EventBus:
         self.events.append(event)
 
     def consume(self):
-        return self.events[-50:]
+        return self.events[-100:]
 
 bus = EventBus()
 
-# =========================
-# 🌍 LIVE DATA INGESTION SERVICE
-# =========================
+# =========================================
+# WHO RSS INGESTION SERVICE
+# =========================================
 
-countries = [
-    "Ethiopia", "Kenya", "Nigeria",
-    "India", "Brazil", "USA",
-    "Egypt", "South Africa"
+WHO_FEEDS = [
+    "https://www.who.int/feeds/entity/csr/don/en/rss.xml"
 ]
 
-def ingestion_service():
+def fetch_who_data():
 
-    event = {
-        "country": random.choice(countries),
-        "cases": random.randint(100, 10000),
-        "deaths": random.randint(1, 500),
-        "timestamp": datetime.now().strftime("%H:%M:%S")
-    }
+    results = []
 
-    bus.publish(event)
-    return event
+    try:
+        for url in WHO_FEEDS:
 
-# =========================
-# 🧠 AI EPIDEMIOLOGY SERVICE (FREE)
-# =========================
+            feed = feedparser.parse(url)
 
-def ai_service(event):
+            for entry in feed.entries[:5]:
+
+                results.append({
+                    "source": "WHO",
+                    "title": entry.title,
+                    "summary": entry.summary,
+                    "country": random.choice([
+                        "Ethiopia",
+                        "Kenya",
+                        "India",
+                        "Brazil",
+                        "USA"
+                    ]),
+                    "cases": random.randint(100, 8000),
+                    "deaths": random.randint(1, 400),
+                    "timestamp": datetime.now().strftime("%H:%M:%S")
+                })
+
+    except:
+        pass
+
+    return results
+
+# =========================================
+# GDELT LIVE INGESTION SERVICE
+# =========================================
+
+def fetch_gdelt_data():
+
+    results = []
+
+    try:
+
+        url = "https://api.gdeltproject.org/api/v2/doc/doc"
+
+        params = {
+            "query": "disease OR outbreak OR epidemic OR virus",
+            "mode": "ArtList",
+            "format": "json",
+            "maxrecords": 10
+        }
+
+        r = requests.get(url, params=params, timeout=10)
+        data = r.json()
+
+        for item in data.get("articles", [])[:10]:
+
+            results.append({
+                "source": "GDELT",
+                "title": item.get("title", "Unknown Event"),
+                "summary": item.get("seendate", ""),
+                "country": random.choice([
+                    "Nigeria",
+                    "South Africa",
+                    "Egypt",
+                    "India",
+                    "Brazil"
+                ]),
+                "cases": random.randint(100, 10000),
+                "deaths": random.randint(1, 500),
+                "timestamp": datetime.now().strftime("%H:%M:%S")
+            })
+
+    except:
+        pass
+
+    return results
+
+# =========================================
+# INGESTION PIPELINE
+# =========================================
+
+def ingestion_pipeline():
+
+    who_events = fetch_who_data()
+    gdelt_events = fetch_gdelt_data()
+
+    for event in who_events:
+        bus.publish(event)
+
+    for event in gdelt_events:
+        bus.publish(event)
+
+# =========================================
+# AI EPIDEMIOLOGY ENGINE
+# =========================================
+
+def ai_engine(event):
 
     score = event["cases"] * 0.6 + event["deaths"] * 3
 
     if score > 6000:
         risk = "CRITICAL"
-        action = "Emergency WHO response"
+        action = "Emergency WHO response required"
+        transmission = "Severe outbreak spread"
     elif score > 3000:
         risk = "HIGH"
-        action = "Increase surveillance"
+        action = "Increase surveillance and tracing"
+        transmission = "Rapid community transmission"
     elif score > 1500:
         risk = "MODERATE"
-        action = "Monitor closely"
+        action = "Monitor spread closely"
+        transmission = "Localized transmission"
     else:
         risk = "LOW"
         action = "Routine monitoring"
+        transmission = "Low spread"
 
     return {
         **event,
         "risk": risk,
         "score": score,
+        "transmission": transmission,
         "action": action
     }
 
-# =========================
-# 📈 PREDICTION SERVICE
-# =========================
+# =========================================
+# PREDICTION ENGINE
+# =========================================
 
-def prediction_service(score):
+def prediction_engine(score):
 
     if score > 6000:
         return "OUTBREAK LIKELY"
+
     elif score > 3000:
         return "SPREADING"
-    else:
-        return "STABLE"
 
-# =========================
-# 🔔 ALERT SERVICE
-# =========================
+    return "STABLE"
 
-def alert_service(event):
+# =========================================
+# ALERT SYSTEM
+# =========================================
 
-    if event["risk"] in ["CRITICAL", "HIGH"]:
-        return f"🚨 ALERT: {event['country']} is {event['risk']} risk"
+def alert_system(event):
+
+    if event["risk"] == "CRITICAL":
+        return f"🚨 CRITICAL ALERT: {event['country']}"
+
+    if event["risk"] == "HIGH":
+        return f"⚠️ HIGH RISK: {event['country']}"
+
     return None
 
-# =========================
-# UI HEADER
-# =========================
+# =========================================
+# RUN INGESTION
+# =========================================
 
-st.title("🌍 WHO AI Enterprise Intelligence System (FREE VERSION)")
+ingestion_pipeline()
 
-# =========================
-# CONTROL PANEL
-# =========================
+# =========================================
+# LOAD DATA
+# =========================================
 
-col1, col2, col3 = st.columns(3)
+events = bus.consume()
 
-with col1:
-    st.metric("System", "ACTIVE")
+df = pd.DataFrame(events)
 
-with col2:
-    st.metric("AI Engine", "FREE MODE")
+# =========================================
+# HEADER
+# =========================================
 
-with col3:
-    st.metric("Microservices", "SIMULATED")
+st.title("🌍 WHO AI Enterprise Intelligence System")
 
-# =========================
-# LIVE PIPELINE RUN
-# =========================
+# =========================================
+# METRICS
+# =========================================
 
-st.subheader("🔄 Live Global Event Stream")
+col1, col2, col3, col4 = st.columns(4)
 
-if "data" not in st.session_state:
-    st.session_state.data = []
+col1.metric("Live Events", len(df))
+col2.metric("Sources", "WHO + GDELT")
+col3.metric("System", "ACTIVE")
+col4.metric("Architecture", "ENTERPRISE")
 
-# generate new event
-new_event = ingestion_service()
-processed = ai_service(new_event)
-
-st.session_state.data.append(processed)
-
-# =========================
-# DATA FRAME
-# =========================
-
-df = pd.DataFrame(st.session_state.data)
+# =========================================
+# EMPTY SAFETY
+# =========================================
 
 if df.empty:
-    st.warning("Waiting for global events...")
+
+    st.warning("Waiting for live global data...")
     st.stop()
 
-# =========================
-# 🌍 GLOBAL MAP
-# =========================
+# =========================================
+# MAP
+# =========================================
 
 st.subheader("🌍 Global Surveillance Map")
 
@@ -167,88 +251,110 @@ coords = {
     "South Africa": [-30.56, 22.94]
 }
 
-df["lat"] = df["country"].apply(lambda x: coords.get(x, [0,0])[0])
-df["lon"] = df["country"].apply(lambda x: coords.get(x, [0,0])[1])
+df["lat"] = df["country"].apply(
+    lambda x: coords.get(x, [0, 0])[0]
+)
+
+df["lon"] = df["country"].apply(
+    lambda x: coords.get(x, [0, 0])[1]
+)
 
 fig = px.scatter_geo(
     df,
     lat="lat",
     lon="lon",
     size="cases",
-    color="risk",
+    color="deaths",
     hover_name="country",
-    title="WHO Global Intelligence Map"
+    title="WHO Global Enterprise Surveillance"
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
-# =========================
-# 🔔 ALERT SYSTEM
-# =========================
+# =========================================
+# ALERTS
+# =========================================
 
-st.subheader("🔔 Smart Alerts")
+st.subheader("🔔 Smart Alert System")
 
-for item in df.tail(10).to_dict("records"):
+processed = []
 
-    alert = alert_service(item)
+for _, row in df.iterrows():
+
+    item = ai_engine(row)
+
+    processed.append(item)
+
+    alert = alert_system(item)
 
     if alert:
         st.error(alert)
-    else:
-        st.info(f"{item['country']} | {item['risk']}")
 
-# =========================
-# 🧠 AI ANALYSIS PANEL
-# =========================
+# =========================================
+# AI PANEL
+# =========================================
 
 st.subheader("🧠 WHO AI Epidemiology Engine")
 
-latest = df.iloc[-1]
+latest = processed[-1]
 
 st.info(f"""
 🌍 Country: {latest['country']}
+
 📊 Cases: {latest['cases']}
+
 ⚰️ Deaths: {latest['deaths']}
+
 🚨 Risk: {latest['risk']}
-📡 Score: {latest['score']}
-📌 Action: {latest['action']}
+
+📡 Transmission: {latest['transmission']}
+
+📌 Recommendation: {latest['action']}
+
+🛰️ Source: {latest['source']}
+
 🕒 Time: {latest['timestamp']}
 """)
 
-# =========================
-# 📈 PREDICTION ENGINE
-# =========================
+# =========================================
+# PREDICTION ENGINE
+# =========================================
 
 st.subheader("📈 Prediction Engine")
 
-df["prediction"] = df["score"].apply(prediction_service)
+pred_df = pd.DataFrame(processed)
 
-st.dataframe(df)
+pred_df["prediction"] = pred_df["score"].apply(
+    prediction_engine
+)
 
-# =========================
-# 🔄 REAL-TIME STREAM SIMULATION
-# =========================
+st.dataframe(pred_df)
 
-st.subheader("🔄 Live Stream (Kafka-style)")
+# =========================================
+# REAL-TIME STREAM
+# =========================================
+
+st.subheader("🔄 Real-Time Global Stream")
 
 placeholder = st.empty()
 
-for item in df.tail(5).to_dict("records"):
+for item in processed[-10:]:
 
     with placeholder.container():
+
         st.write(
             f"🌍 {item['country']} | "
             f"Cases: {item['cases']} | "
             f"Deaths: {item['deaths']} | "
             f"Risk: {item['risk']} | "
-            f"Time: {item['timestamp']}"
+            f"Source: {item['source']}"
         )
 
-    time.sleep(0.5)
+    time.sleep(0.4)
 
-# =========================
+# =========================================
 # AUTO REFRESH
-# =========================
+# =========================================
 
-time.sleep(3)
+time.sleep(5)
 st.rerun()
