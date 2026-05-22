@@ -4,32 +4,37 @@ import pandas as pd
 import time
 
 # =========================================
-# CONFIG
+# CONFIG (AWS / LOCAL SWITCHABLE)
 # =========================================
 
 st.set_page_config(
-    page_title="WHO AI Enterprise Dashboard",
+    page_title="WHO AI Global Intelligence System",
     page_icon="🌍",
     layout="wide"
 )
 
-API_GATEWAY = "http://localhost:8000/pipeline"
+# 👉 CHANGE THIS IN AWS DEPLOYMENT
+API_GATEWAY = st.secrets.get(
+    "API_GATEWAY",
+    "http://localhost:8000/pipeline"
+)
 
 # =========================================
 # HEADER
 # =========================================
 
-st.title("🌍 WHO AI Enterprise Intelligence System")
-st.caption("Microservices Architecture (FastAPI + Streamlit)")
+st.title("🌍 WHO AI Enterprise Intelligence Platform")
+st.caption("Docker + Kafka + Microservices + Cloud Architecture")
 
 # =========================================
-# LOAD DATA FROM MICROSERVICE BACKEND
+# FETCH DATA FROM MICROSERVICE BACKEND
 # =========================================
 
-def load_data():
+@st.cache_data(ttl=10)
+def fetch_data():
 
     try:
-        response = requests.get(API_GATEWAY, timeout=10)
+        response = requests.get(API_GATEWAY, timeout=15)
 
         if response.status_code == 200:
             return response.json()
@@ -39,85 +44,100 @@ def load_data():
     except:
         return []
 
-data = load_data()
+data = fetch_data()
 
 # =========================================
 # SAFETY CHECK
 # =========================================
 
 if not data:
-    st.warning("Backend not running or no data available.")
+
+    st.warning("⚠️ Backend not available or Kafka pipeline not streaming.")
     st.stop()
 
 df = pd.DataFrame(data)
 
 # =========================================
-# METRICS
+# METRICS DASHBOARD
 # =========================================
 
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("Events", len(df))
-col2.metric("System", "ACTIVE")
-col3.metric("Architecture", "MICROSERVICES")
-
-# =========================================
-# GLOBAL VIEW
-# =========================================
-
-st.subheader("🌍 Global Surveillance Dashboard")
-
-st.dataframe(df)
+col1.metric("Live Events", len(df))
+col2.metric("Architecture", "AWS + Kafka")
+col3.metric("System Status", "ACTIVE")
+col4.metric("AI Engine", "ENABLED")
 
 # =========================================
-# RISK ANALYSIS
+# GLOBAL TABLE
 # =========================================
 
-st.subheader("🚨 Risk Analysis")
+st.subheader("🌍 Global Surveillance Feed")
+
+st.dataframe(df, use_container_width=True)
+
+# =========================================
+# RISK VISUALIZATION
+# =========================================
+
+st.subheader("🚨 Risk Distribution")
 
 if "risk" in df.columns:
 
-    risk_counts = df["risk"].value_counts()
+    st.bar_chart(df["risk"].value_counts())
 
-    st.bar_chart(risk_counts)
+# =========================================
+# COUNTRY ANALYSIS
+# =========================================
+
+st.subheader("🌍 Country-Level Intelligence")
+
+if "country" in df.columns:
+
+    country_stats = df.groupby("country")[["cases", "deaths"]].sum()
+
+    st.dataframe(country_stats)
 
 # =========================================
 # PREDICTION VIEW
 # =========================================
 
-st.subheader("📈 Prediction Output")
+st.subheader("📈 AI Prediction Engine Output")
 
 if "prediction" in df.columns:
 
-    st.dataframe(df[["country", "risk", "prediction", "score"]])
+    st.dataframe(
+        df[["country", "cases", "deaths", "risk", "prediction", "score"]]
+    )
 
 # =========================================
-# GLOBAL STREAM (REAL-TIME SIMULATION)
+# LIVE STREAM (KAFKA SIMULATION VIEW)
 # =========================================
 
-st.subheader("🔄 Live Stream")
+st.subheader("🔄 Real-Time Global Stream (Kafka Feed Simulation)")
 
 placeholder = st.empty()
 
-for i in range(len(df)):
+for i in range(min(len(df), 10)):
 
     item = df.iloc[i]
 
     with placeholder.container():
 
         st.write(
-            f"🌍 {item['country']} | "
-            f"Cases: {item['cases']} | "
-            f"Deaths: {item['deaths']} | "
-            f"Risk: {item['risk']} | "
-            f"Prediction: {item.get('prediction','N/A')}"
+            f"🌍 **{item.get('country','Unknown')}** | "
+            f"📊 Cases: {item.get('cases',0)} | "
+            f"⚰️ Deaths: {item.get('deaths',0)} | "
+            f"🚨 Risk: {item.get('risk','N/A')} | "
+            f"🧠 Prediction: {item.get('prediction','N/A')} | "
+            f"📡 Source: {item.get('source','system')}"
         )
 
-    time.sleep(0.3)
+    time.sleep(0.2)
 
 # =========================================
-# AUTO REFRESH
+# AUTO REFRESH (REAL-TIME SIMULATION)
 # =========================================
 
-time.sleep(5)
+time.sleep(8)
 st.rerun()
