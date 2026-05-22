@@ -1,134 +1,160 @@
 import streamlit as st
-import requests
 import pandas as pd
 import plotly.express as px
-import time
-import threading
 import random
+import time
+from datetime import datetime
 
 # =========================
-# CONFIG
+# STREAMLIT CONFIG
 # =========================
 
 st.set_page_config(
-    page_title="WHO AI Enterprise Live System",
+    page_title="WHO AI Enterprise System",
     page_icon="🌍",
     layout="wide"
 )
 
 # =========================
-# LIVE GLOBAL DATA PIPELINE (SIMULATED WHO + GDELT)
+# 🧠 "MICROSERVICES SIMULATION LAYER"
 # =========================
 
-live_stream = []
+class EventBus:
+    def __init__(self):
+        self.events = []
+
+    def publish(self, event):
+        self.events.append(event)
+
+    def consume(self):
+        return self.events[-50:]
+
+bus = EventBus()
+
+# =========================
+# 🌍 LIVE DATA INGESTION SERVICE
+# =========================
 
 countries = [
     "Ethiopia", "Kenya", "Nigeria",
     "India", "Brazil", "USA",
-    "South Africa", "Egypt"
+    "Egypt", "South Africa"
 ]
 
-def live_ingestion_pipeline():
+def ingestion_service():
 
-    while True:
+    event = {
+        "country": random.choice(countries),
+        "cases": random.randint(100, 10000),
+        "deaths": random.randint(1, 500),
+        "timestamp": datetime.now().strftime("%H:%M:%S")
+    }
 
-        event = {
-            "country": random.choice(countries),
-            "cases": random.randint(100, 9000),
-            "deaths": random.randint(1, 600),
-            "source": random.choice(["WHO", "GDELT", "RSS"])
-        }
-
-        live_stream.append(event)
-
-        # keep memory light
-        if len(live_stream) > 200:
-            live_stream.pop(0)
-
-        time.sleep(2)
-
-# start pipeline
-threading.Thread(target=live_ingestion_pipeline, daemon=True).start()
+    bus.publish(event)
+    return event
 
 # =========================
-# ENTERPRISE RISK ENGINE
+# 🧠 AI EPIDEMIOLOGY SERVICE (FREE)
 # =========================
 
-def risk_engine(cases, deaths):
+def ai_service(event):
 
-    score = cases * 0.6 + deaths * 3
+    score = event["cases"] * 0.6 + event["deaths"] * 3
 
     if score > 6000:
-        return "CRITICAL"
+        risk = "CRITICAL"
+        action = "Emergency WHO response"
     elif score > 3000:
-        return "HIGH"
-    elif score > 1500:
-        return "MODERATE"
-    else:
-        return "LOW"
-
-# =========================
-# AI WHO REASONING (FREE)
-# =========================
-
-def who_ai(event):
-
-    risk = risk_engine(event["cases"], event["deaths"])
-
-    if risk == "CRITICAL":
-        action = "Emergency response required"
-        transmission = "High severity outbreak"
-    elif risk == "HIGH":
+        risk = "HIGH"
         action = "Increase surveillance"
-        transmission = "Rapid community spread"
-    elif risk == "MODERATE":
-        action = "Monitor situation"
-        transmission = "Localized transmission"
+    elif score > 1500:
+        risk = "MODERATE"
+        action = "Monitor closely"
     else:
+        risk = "LOW"
         action = "Routine monitoring"
-        transmission = "Low spread risk"
 
     return {
-        "country": event["country"],
-        "cases": event["cases"],
-        "deaths": event["deaths"],
-        "source": event["source"],
+        **event,
         "risk": risk,
-        "transmission": transmission,
+        "score": score,
         "action": action
     }
 
 # =========================
-# STREAMLIT UI
+# 📈 PREDICTION SERVICE
 # =========================
 
-st.title("🌍 WHO AI Enterprise Live Intelligence System")
+def prediction_service(score):
+
+    if score > 6000:
+        return "OUTBREAK LIKELY"
+    elif score > 3000:
+        return "SPREADING"
+    else:
+        return "STABLE"
 
 # =========================
-# METRICS
+# 🔔 ALERT SERVICE
+# =========================
+
+def alert_service(event):
+
+    if event["risk"] in ["CRITICAL", "HIGH"]:
+        return f"🚨 ALERT: {event['country']} is {event['risk']} risk"
+    return None
+
+# =========================
+# UI HEADER
+# =========================
+
+st.title("🌍 WHO AI Enterprise Intelligence System (FREE VERSION)")
+
+# =========================
+# CONTROL PANEL
 # =========================
 
 col1, col2, col3 = st.columns(3)
 
-col1.metric("Live Events", len(live_stream))
-col2.metric("Data Sources", "WHO + GDELT + RSS")
-col3.metric("System", "ENTERPRISE ACTIVE")
+with col1:
+    st.metric("System", "ACTIVE")
+
+with col2:
+    st.metric("AI Engine", "FREE MODE")
+
+with col3:
+    st.metric("Microservices", "SIMULATED")
+
+# =========================
+# LIVE PIPELINE RUN
+# =========================
+
+st.subheader("🔄 Live Global Event Stream")
+
+if "data" not in st.session_state:
+    st.session_state.data = []
+
+# generate new event
+new_event = ingestion_service()
+processed = ai_service(new_event)
+
+st.session_state.data.append(processed)
 
 # =========================
 # DATA FRAME
 # =========================
 
-df = pd.DataFrame(live_stream)
+df = pd.DataFrame(st.session_state.data)
 
 if df.empty:
-    st.warning("Waiting for live global data stream...")
+    st.warning("Waiting for global events...")
     st.stop()
 
 # =========================
-# GLOBAL MAP
+# 🌍 GLOBAL MAP
 # =========================
 
-st.subheader("🌍 Live Global Surveillance Map")
+st.subheader("🌍 Global Surveillance Map")
 
 coords = {
     "Ethiopia": [9.03, 38.74],
@@ -137,8 +163,8 @@ coords = {
     "India": [20.59, 78.96],
     "Brazil": [-14.23, -51.92],
     "USA": [37.09, -95.71],
-    "South Africa": [-30.56, 22.94],
-    "Egypt": [26.82, 30.80]
+    "Egypt": [26.82, 30.80],
+    "South Africa": [-30.56, 22.94]
 }
 
 df["lat"] = df["country"].apply(lambda x: coords.get(x, [0,0])[0])
@@ -149,87 +175,73 @@ fig = px.scatter_geo(
     lat="lat",
     lon="lon",
     size="cases",
-    color="deaths",
+    color="risk",
     hover_name="country",
-    title="WHO Global Live Surveillance (Enterprise Mode)"
+    title="WHO Global Intelligence Map"
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
 # =========================
-# ALERT SYSTEM
+# 🔔 ALERT SYSTEM
 # =========================
 
-st.subheader("🔔 Smart Alert System")
+st.subheader("🔔 Smart Alerts")
 
-for _, row in df.tail(15).iterrows():
+for item in df.tail(10).to_dict("records"):
 
-    result = who_ai(row)
+    alert = alert_service(item)
 
-    if result["risk"] == "CRITICAL":
-        st.error(f"🚨 {result['country']} | CRITICAL OUTBREAK")
-    elif result["risk"] == "HIGH":
-        st.warning(f"⚠️ {result['country']} | HIGH RISK")
+    if alert:
+        st.error(alert)
     else:
-        st.info(f"{result['country']} | {result['risk']}")
+        st.info(f"{item['country']} | {item['risk']}")
 
 # =========================
-# AI ANALYSIS PANEL
+# 🧠 AI ANALYSIS PANEL
 # =========================
 
 st.subheader("🧠 WHO AI Epidemiology Engine")
 
 latest = df.iloc[-1]
 
-analysis = who_ai(latest)
-
 st.info(f"""
-🌍 Country: {analysis['country']}
-📊 Cases: {analysis['cases']}
-⚰️ Deaths: {analysis['deaths']}
-📡 Source: {analysis['source']}
-🚨 Risk: {analysis['risk']}
-🦠 Transmission: {analysis['transmission']}
-📌 Action: {analysis['action']}
+🌍 Country: {latest['country']}
+📊 Cases: {latest['cases']}
+⚰️ Deaths: {latest['deaths']}
+🚨 Risk: {latest['risk']}
+📡 Score: {latest['score']}
+📌 Action: {latest['action']}
+🕒 Time: {latest['timestamp']}
 """)
 
 # =========================
-# PREDICTION ENGINE
+# 📈 PREDICTION ENGINE
 # =========================
 
 st.subheader("📈 Prediction Engine")
 
-df["risk_level"] = df.apply(
-    lambda r: risk_engine(r["cases"], r["deaths"]),
-    axis=1
-)
+df["prediction"] = df["score"].apply(prediction_service)
 
-df["risk_score"] = df.apply(
-    lambda r: r["cases"] * 0.6 + r["deaths"] * 3,
-    axis=1
-)
-
-st.dataframe(df.tail(50))
+st.dataframe(df)
 
 # =========================
-# REAL-TIME STREAM VIEW
+# 🔄 REAL-TIME STREAM SIMULATION
 # =========================
 
-st.subheader("🔄 Real-Time Global Stream")
+st.subheader("🔄 Live Stream (Kafka-style)")
 
 placeholder = st.empty()
 
-for event in live_stream[-10:]:
-
-    result = who_ai(event)
+for item in df.tail(5).to_dict("records"):
 
     with placeholder.container():
         st.write(
-            f"🌍 {result['country']} | "
-            f"Cases: {result['cases']} | "
-            f"Deaths: {result['deaths']} | "
-            f"Source: {result['source']} | "
-            f"Risk: {result['risk']}"
+            f"🌍 {item['country']} | "
+            f"Cases: {item['cases']} | "
+            f"Deaths: {item['deaths']} | "
+            f"Risk: {item['risk']} | "
+            f"Time: {item['timestamp']}"
         )
 
     time.sleep(0.5)
@@ -238,5 +250,5 @@ for event in live_stream[-10:]:
 # AUTO REFRESH
 # =========================
 
-time.sleep(5)
+time.sleep(3)
 st.rerun()
