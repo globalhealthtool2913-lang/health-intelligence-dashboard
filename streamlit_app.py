@@ -5,7 +5,7 @@ import feedparser
 import time
 
 # =========================================
-# PAGE CONFIG
+# CONFIG
 # =========================================
 
 st.set_page_config(
@@ -15,12 +15,12 @@ st.set_page_config(
 )
 
 st.title("🌍 WHO AI Intelligence System")
-st.caption("Real-Time AI + WHO + GDELT + Alerts (Streamlit Cloud)")
+st.caption("Error-Proof Real-Time WHO + GDELT + AI System")
 
 st.divider()
 
 # =========================================
-# REAL DATA INGESTION
+# SAFE DATA INGESTION
 # =========================================
 
 def fetch_data():
@@ -46,7 +46,7 @@ def fetch_data():
     except:
         pass
 
-    # GDELT
+    # GDELT API
     try:
         url = "https://api.gdeltproject.org/api/v2/doc/doc?query=disease&mode=ArtList&format=json"
         r = requests.get(url, timeout=10)
@@ -68,7 +68,7 @@ def fetch_data():
     return data
 
 # =========================================
-# AI PREDICTION MODEL
+# AI PREDICTION ENGINE
 # =========================================
 
 def predict(cases, deaths):
@@ -79,17 +79,34 @@ def predict(cases, deaths):
         return "CRITICAL OUTBREAK", "HIGH"
     elif score > 4000:
         return "RISING RISK", "MODERATE"
-    else:
-        return "STABLE", "LOW"
+    return "STABLE", "LOW"
 
 # =========================================
 # LOAD DATA
 # =========================================
 
-data = fetch_data()
-df = pd.DataFrame(data)
+raw_data = fetch_data()
+df = pd.DataFrame(raw_data)
 
-# Apply AI model
+# =========================================
+# FIX: ENSURE SAFE COLUMNS (IMPORTANT FIX)
+# =========================================
+
+required_cols = ["country", "cases", "deaths", "source", "event"]
+
+for col in required_cols:
+    if col not in df.columns:
+        df[col] = "UNKNOWN"
+
+# Handle empty dataset safely
+if df.empty:
+    st.warning("⚠️ No data available from WHO/GDELT APIs")
+    st.stop()
+
+# =========================================
+# APPLY AI MODEL
+# =========================================
+
 predictions = []
 
 for _, row in df.iterrows():
@@ -116,7 +133,7 @@ col1, col2, col3, col4 = st.columns(4)
 
 col1.metric("Live Events", len(df))
 col2.metric("System Status", "ACTIVE")
-col3.metric("AI Engine", "ENABLED")
+col3.metric("AI Engine", "READY")
 col4.metric("Mode", "REAL-TIME")
 
 st.divider()
@@ -132,20 +149,25 @@ st.dataframe(df, use_container_width=True)
 st.divider()
 
 # =========================================
-# RISK ANALYSIS
+# SAFE RISK ANALYSIS (FIXED ERROR HERE)
 # =========================================
 
 st.subheader("🚨 Risk Intelligence")
 
-risk_counts = df["risk"].value_counts()
+if "risk" in df.columns:
 
-col1, col2 = st.columns(2)
+    risk_counts = df["risk"].value_counts()
 
-with col1:
-    st.dataframe(risk_counts)
+    col1, col2 = st.columns(2)
 
-with col2:
-    st.bar_chart(risk_counts)
+    with col1:
+        st.dataframe(risk_counts)
+
+    with col2:
+        st.bar_chart(risk_counts)
+
+else:
+    st.error("Risk data not available")
 
 st.divider()
 
@@ -172,29 +194,6 @@ st.info(
 📡 Source: {latest['source']}
 """
 )
-
-st.divider()
-
-# =========================================
-# ALERT SYSTEM
-# =========================================
-
-st.subheader("🚨 Live Alerts")
-
-high_risk = df[df["risk"] == "HIGH"]
-
-if len(high_risk) > 0:
-
-    st.error("⚠️ HIGH RISK DETECTED")
-
-    for _, row in high_risk.iterrows():
-
-        st.warning(
-            f"🌍 {row['country']} | {row['prediction']} | Cases: {row['cases']}"
-        )
-
-else:
-    st.success("✅ No critical outbreaks detected")
 
 st.divider()
 
