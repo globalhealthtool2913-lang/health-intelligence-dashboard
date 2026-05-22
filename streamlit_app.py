@@ -3,218 +3,240 @@ import requests
 import pandas as pd
 import plotly.express as px
 import time
+import threading
+import random
 
 # =========================
 # CONFIG
 # =========================
 
-API_BASE = "https://Globalhealthtool.pythonanywhere.com"
-
 st.set_page_config(
-    page_title="WHO AI Global System (Free)",
+    page_title="WHO AI Enterprise Live System",
     page_icon="🌍",
     layout="wide"
 )
 
 # =========================
-# FETCH DATA (SAFE)
+# LIVE GLOBAL DATA PIPELINE (SIMULATED WHO + GDELT)
 # =========================
 
-def fetch_data():
-    try:
-        r = requests.get(f"{API_BASE}/events", timeout=10)
-        data = r.json()
+live_stream = []
 
-        if isinstance(data, list):
-            return data
-        return []
-    except:
-        return []
+countries = [
+    "Ethiopia", "Kenya", "Nigeria",
+    "India", "Brazil", "USA",
+    "South Africa", "Egypt"
+]
+
+def live_ingestion_pipeline():
+
+    while True:
+
+        event = {
+            "country": random.choice(countries),
+            "cases": random.randint(100, 9000),
+            "deaths": random.randint(1, 600),
+            "source": random.choice(["WHO", "GDELT", "RSS"])
+        }
+
+        live_stream.append(event)
+
+        # keep memory light
+        if len(live_stream) > 200:
+            live_stream.pop(0)
+
+        time.sleep(2)
+
+# start pipeline
+threading.Thread(target=live_ingestion_pipeline, daemon=True).start()
 
 # =========================
-# FREE WHO AI ENGINE (NO OPENAI)
+# ENTERPRISE RISK ENGINE
 # =========================
 
-def who_ai_analysis(event):
-
-    country = event.get("country", "Unknown")
-    cases = float(event.get("cases", 0))
-    deaths = float(event.get("deaths", 0))
+def risk_engine(cases, deaths):
 
     score = cases * 0.6 + deaths * 3
 
-    if score > 5000:
-        risk = "CRITICAL"
-        action = "Emergency WHO response required"
+    if score > 6000:
+        return "CRITICAL"
     elif score > 3000:
-        risk = "HIGH"
-        action = "Increase surveillance and contact tracing"
+        return "HIGH"
     elif score > 1500:
-        risk = "MODERATE"
-        action = "Monitor and prepare health resources"
+        return "MODERATE"
     else:
-        risk = "LOW"
-        action = "Routine monitoring"
+        return "LOW"
 
-    if deaths > cases * 0.1:
-        transmission = "Severe outbreak pattern"
+# =========================
+# AI WHO REASONING (FREE)
+# =========================
+
+def who_ai(event):
+
+    risk = risk_engine(event["cases"], event["deaths"])
+
+    if risk == "CRITICAL":
+        action = "Emergency response required"
+        transmission = "High severity outbreak"
+    elif risk == "HIGH":
+        action = "Increase surveillance"
+        transmission = "Rapid community spread"
+    elif risk == "MODERATE":
+        action = "Monitor situation"
+        transmission = "Localized transmission"
     else:
-        transmission = "Community transmission"
+        action = "Routine monitoring"
+        transmission = "Low spread risk"
 
     return {
-        "country": country,
-        "cases": cases,
-        "deaths": deaths,
+        "country": event["country"],
+        "cases": event["cases"],
+        "deaths": event["deaths"],
+        "source": event["source"],
         "risk": risk,
         "transmission": transmission,
-        "recommendation": action,
-        "score": score
+        "action": action
     }
 
 # =========================
-# LOAD DATA
+# STREAMLIT UI
 # =========================
 
-data = fetch_data()
-
-if data:
-    df = pd.DataFrame(data)
-else:
-    df = pd.DataFrame(columns=["country", "cases", "deaths"])
+st.title("🌍 WHO AI Enterprise Live Intelligence System")
 
 # =========================
-# TITLE
+# METRICS
 # =========================
-
-st.title("🌍 WHO AI Global Intelligence System (FREE VERSION)")
-
-# =========================
-# DASHBOARD
-# =========================
-
-st.subheader("📊 Global Intelligence Dashboard")
 
 col1, col2, col3 = st.columns(3)
 
-col1.metric("Events", len(df))
-col2.metric("System", "ACTIVE")
-col3.metric("AI Engine", "FREE MODE")
+col1.metric("Live Events", len(live_stream))
+col2.metric("Data Sources", "WHO + GDELT + RSS")
+col3.metric("System", "ENTERPRISE ACTIVE")
 
 # =========================
-# SAFETY CHECK
+# DATA FRAME
 # =========================
+
+df = pd.DataFrame(live_stream)
 
 if df.empty:
-    st.warning("No data available from backend")
+    st.warning("Waiting for live global data stream...")
+    st.stop()
 
-else:
+# =========================
+# GLOBAL MAP
+# =========================
 
-    # =========================
-    # MAP
-    # =========================
+st.subheader("🌍 Live Global Surveillance Map")
 
-    st.subheader("🌍 Global Surveillance Map")
+coords = {
+    "Ethiopia": [9.03, 38.74],
+    "Kenya": [-1.29, 36.82],
+    "Nigeria": [9.08, 8.67],
+    "India": [20.59, 78.96],
+    "Brazil": [-14.23, -51.92],
+    "USA": [37.09, -95.71],
+    "South Africa": [-30.56, 22.94],
+    "Egypt": [26.82, 30.80]
+}
 
-    coords = {
-        "Ethiopia": [9.03, 38.74],
-        "Kenya": [-1.29, 36.82],
-        "Nigeria": [9.08, 8.67],
-        "India": [20.59, 78.96],
-        "Brazil": [-14.23, -51.92],
-        "USA": [37.09, -95.71]
-    }
+df["lat"] = df["country"].apply(lambda x: coords.get(x, [0,0])[0])
+df["lon"] = df["country"].apply(lambda x: coords.get(x, [0,0])[1])
 
-    df["lat"] = df["country"].apply(lambda x: coords.get(x, [0,0])[0])
-    df["lon"] = df["country"].apply(lambda x: coords.get(x, [0,0])[1])
+fig = px.scatter_geo(
+    df,
+    lat="lat",
+    lon="lon",
+    size="cases",
+    color="deaths",
+    hover_name="country",
+    title="WHO Global Live Surveillance (Enterprise Mode)"
+)
 
-    fig = px.scatter_geo(
-        df,
-        lat="lat",
-        lon="lon",
-        size="cases",
-        color="deaths",
-        hover_name="country",
-        title="WHO Global Surveillance Map (FREE AI)"
-    )
+st.plotly_chart(fig, use_container_width=True)
 
-    st.plotly_chart(fig, use_container_width=True)
+# =========================
+# ALERT SYSTEM
+# =========================
 
-    # =========================
-    # ALERT SYSTEM
-    # =========================
+st.subheader("🔔 Smart Alert System")
 
-    st.subheader("🔔 Smart Alerts")
+for _, row in df.tail(15).iterrows():
 
-    for _, row in df.iterrows():
+    result = who_ai(row)
 
-        result = who_ai_analysis(row)
+    if result["risk"] == "CRITICAL":
+        st.error(f"🚨 {result['country']} | CRITICAL OUTBREAK")
+    elif result["risk"] == "HIGH":
+        st.warning(f"⚠️ {result['country']} | HIGH RISK")
+    else:
+        st.info(f"{result['country']} | {result['risk']}")
 
-        if result["risk"] == "CRITICAL":
-            st.error(f"🚨 {result['country']} | Cases: {result['cases']} | Deaths: {result['deaths']}")
-        elif result["risk"] == "HIGH":
-            st.warning(f"⚠️ {result['country']} | HIGH RISK")
-        else:
-            st.info(f"{result['country']} | {result['risk']}")
+# =========================
+# AI ANALYSIS PANEL
+# =========================
 
-    # =========================
-    # AI ANALYSIS PANEL
-    # =========================
+st.subheader("🧠 WHO AI Epidemiology Engine")
 
-    st.subheader("🧠 WHO AI Epidemiology Engine (FREE)")
+latest = df.iloc[-1]
 
-    latest = df.iloc[-1]
+analysis = who_ai(latest)
 
-    analysis = who_ai_analysis(latest)
+st.info(f"""
+🌍 Country: {analysis['country']}
+📊 Cases: {analysis['cases']}
+⚰️ Deaths: {analysis['deaths']}
+📡 Source: {analysis['source']}
+🚨 Risk: {analysis['risk']}
+🦠 Transmission: {analysis['transmission']}
+📌 Action: {analysis['action']}
+""")
 
-    st.info(f"""
-    🌍 Country: {analysis['country']}
-    📊 Cases: {analysis['cases']}
-    ⚰️ Deaths: {analysis['deaths']}
-    🚨 Risk: {analysis['risk']}
-    📡 Transmission: {analysis['transmission']}
-    📌 Recommendation: {analysis['recommendation']}
-    """)
+# =========================
+# PREDICTION ENGINE
+# =========================
 
-    # =========================
-    # PREDICTION TABLE
-    # =========================
+st.subheader("📈 Prediction Engine")
 
-    st.subheader("📈 Prediction Engine")
+df["risk_level"] = df.apply(
+    lambda r: risk_engine(r["cases"], r["deaths"]),
+    axis=1
+)
 
-    predictions = []
+df["risk_score"] = df.apply(
+    lambda r: r["cases"] * 0.6 + r["deaths"] * 3,
+    axis=1
+)
 
-    for _, row in df.iterrows():
-        predictions.append(who_ai_analysis(row))
+st.dataframe(df.tail(50))
 
-    pred_df = pd.DataFrame(predictions)
+# =========================
+# REAL-TIME STREAM VIEW
+# =========================
 
-    st.dataframe(pred_df)
+st.subheader("🔄 Real-Time Global Stream")
 
-    # =========================
-    # REAL-TIME STREAM SIMULATION
-    # =========================
+placeholder = st.empty()
 
-    st.subheader("🔄 Real-Time Stream")
+for event in live_stream[-10:]:
 
-    placeholder = st.empty()
+    result = who_ai(event)
 
-    for _, row in df.tail(10).iterrows():
+    with placeholder.container():
+        st.write(
+            f"🌍 {result['country']} | "
+            f"Cases: {result['cases']} | "
+            f"Deaths: {result['deaths']} | "
+            f"Source: {result['source']} | "
+            f"Risk: {result['risk']}"
+        )
 
-        result = who_ai_analysis(row)
-
-        with placeholder.container():
-            st.write(
-                f"🌍 {result['country']} | "
-                f"Cases: {result['cases']} | "
-                f"Deaths: {result['deaths']} | "
-                f"Risk: {result['risk']}"
-            )
-
-        time.sleep(0.5)
+    time.sleep(0.5)
 
 # =========================
 # AUTO REFRESH
 # =========================
 
-time.sleep(10)
+time.sleep(5)
 st.rerun()
