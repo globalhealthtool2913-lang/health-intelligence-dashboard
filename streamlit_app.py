@@ -7,7 +7,7 @@ import time
 import plotly.express as px
 
 # =========================================
-# PAGE CONFIG
+# SAFE CONFIG (STREAMLIT CLOUD SECRETS)
 # =========================================
 
 st.set_page_config(
@@ -17,12 +17,39 @@ st.set_page_config(
 )
 
 st.title("🌍 WHO AI Enterprise Intelligence Platform")
-st.caption("Stable Real-Time WHO + GDELT + AI Monitoring System")
+st.caption("Secure Real-Time WHO + GDELT + AI Monitoring System")
 
 st.divider()
 
 # =========================================
-# SAFE DATA INGESTION
+# TELEGRAM SAFE SETUP
+# =========================================
+
+try:
+    TELEGRAM_TOKEN = st.secrets["TELEGRAM_TOKEN"]
+    CHAT_ID = st.secrets["CHAT_ID"]
+except:
+    TELEGRAM_TOKEN = None
+    CHAT_ID = None
+
+
+def send_telegram(message):
+
+    if not TELEGRAM_TOKEN or not CHAT_ID:
+        return
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+
+    try:
+        requests.post(url, json={
+            "chat_id": CHAT_ID,
+            "text": message
+        }, timeout=10)
+    except:
+        pass
+
+# =========================================
+# DATA INGESTION ENGINE
 # =========================================
 
 def fetch_data():
@@ -36,7 +63,6 @@ def fetch_data():
         )
 
         for entry in feed.entries[:3]:
-
             data.append({
                 "country": "Global",
                 "cases": 4000,
@@ -44,7 +70,6 @@ def fetch_data():
                 "source": "WHO",
                 "event": entry.title
             })
-
     except:
         pass
 
@@ -57,7 +82,6 @@ def fetch_data():
             j = r.json()
 
             for a in j.get("articles", [])[:3]:
-
                 data.append({
                     "country": "Global",
                     "cases": 6000,
@@ -65,11 +89,10 @@ def fetch_data():
                     "source": "GDELT",
                     "event": a.get("title", "news")
                 })
-
     except:
         pass
 
-    # FALLBACK SAFETY
+    # FALLBACK
     if len(data) == 0:
         data = [{
             "country": "Ethiopia",
@@ -103,7 +126,6 @@ def predict(cases, deaths):
 raw = fetch_data()
 df = pd.DataFrame(raw)
 
-# SAFE COLUMNS
 for col in ["country", "cases", "deaths", "source", "event"]:
     if col not in df.columns:
         df[col] = "UNKNOWN"
@@ -146,15 +168,15 @@ df = pd.DataFrame(results)
 
 col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("Live Events", len(df))
-col2.metric("System Status", "ACTIVE")
+col1.metric("Events", len(df))
+col2.metric("System", "ACTIVE")
 col3.metric("AI Engine", "ENTERPRISE")
 col4.metric("Mode", "STABLE")
 
 st.divider()
 
 # =========================================
-# GLOBAL DASHBOARD
+# DASHBOARD
 # =========================================
 
 st.subheader("🌍 Global Surveillance Dashboard")
@@ -163,7 +185,7 @@ st.dataframe(df, use_container_width=True)
 st.divider()
 
 # =========================================
-# RISK INTELLIGENCE (FIXED UI)
+# RISK INTELLIGENCE
 # =========================================
 
 st.subheader("🚨 Risk Intelligence")
@@ -182,7 +204,7 @@ with col2:
 st.divider()
 
 # =========================================
-# AI ENGINE PANEL (FIXED FORMAT)
+# AI ENGINE PANEL
 # =========================================
 
 st.subheader("🧠 AI Epidemiology Engine")
@@ -191,7 +213,6 @@ latest = df.iloc[-1]
 
 st.markdown(f"""
 ### 🌍 Country: {latest['country']}
-
 📊 Cases: **{latest['cases']}**  
 ⚰️ Deaths: **{latest['deaths']}**  
 🚨 Risk: **{latest['risk']}**  
@@ -203,13 +224,12 @@ st.markdown(f"""
 st.divider()
 
 # =========================================
-# GLOBAL HEATMAP (FIXED)
+# GLOBAL HEATMAP
 # =========================================
 
 st.subheader("🌍 Global Heatmap")
 
 map_df = df.copy()
-
 map_df["lat"] = np.random.uniform(-60, 80, len(map_df))
 map_df["lon"] = np.random.uniform(-120, 120, len(map_df))
 
@@ -219,8 +239,7 @@ fig = px.scatter_geo(
     lon="lon",
     color="risk",
     size="cases",
-    hover_name="country",
-    title="Global Disease Heatmap"
+    hover_name="country"
 )
 
 st.plotly_chart(fig, use_container_width=True)
@@ -228,7 +247,7 @@ st.plotly_chart(fig, use_container_width=True)
 st.divider()
 
 # =========================================
-# LIVE STREAM (FIXED)
+# LIVE STREAM
 # =========================================
 
 st.subheader("🔄 Live Global Stream")
@@ -236,7 +255,7 @@ st.subheader("🔄 Live Global Stream")
 for _, row in df.iterrows():
 
     st.write(
-        f"🌍 **{row['country']}** | "
+        f"🌍 {row['country']} | "
         f"📊 {row['cases']} | "
         f"⚰️ {row['deaths']} | "
         f"🚨 {row['risk']} | "
@@ -246,10 +265,24 @@ for _, row in df.iterrows():
         f"📰 {row['event']}"
     )
 
-st.divider()
+# =========================================
+# TELEGRAM ALERT TRIGGER
+# =========================================
+
+for _, row in df.iterrows():
+
+    if row["risk"] == "HIGH":
+
+        send_telegram(
+            f"🚨 WHO ALERT\n"
+            f"🌍 {row['country']}\n"
+            f"📊 Cases: {row['cases']}\n"
+            f"⚰️ Deaths: {row['deaths']}\n"
+            f"🧠 Prediction: {row['prediction']}"
+        )
 
 # =========================================
-# AUTO REFRESH (SAFE)
+# AUTO REFRESH
 # =========================================
 
 time.sleep(5)
