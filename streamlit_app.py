@@ -11,13 +11,13 @@ import time
 API_BASE = "https://Globalhealthtool.pythonanywhere.com"
 
 st.set_page_config(
-    page_title="WHO AI Enterprise System",
+    page_title="WHO AI Global System (Free)",
     page_icon="🌍",
     layout="wide"
 )
 
 # =========================
-# SAFE BACKEND FETCH
+# FETCH DATA (SAFE)
 # =========================
 
 def fetch_data():
@@ -28,69 +28,48 @@ def fetch_data():
         if isinstance(data, list):
             return data
         return []
-
     except:
         return []
 
 # =========================
-# GPT ANALYST (FIXED STREAMLIT SECRETS)
+# FREE WHO AI ENGINE (NO OPENAI)
 # =========================
 
-def gpt_analysis(event):
+def who_ai_analysis(event):
 
-    try:
-        from openai import OpenAI
+    country = event.get("country", "Unknown")
+    cases = float(event.get("cases", 0))
+    deaths = float(event.get("deaths", 0))
 
-        api_key = st.secrets.get("OPENAI_API_KEY", None)
+    score = cases * 0.6 + deaths * 3
 
-        if not api_key:
-            return "❌ Missing OpenAI API Key (add in Streamlit Secrets)"
+    if score > 5000:
+        risk = "CRITICAL"
+        action = "Emergency WHO response required"
+    elif score > 3000:
+        risk = "HIGH"
+        action = "Increase surveillance and contact tracing"
+    elif score > 1500:
+        risk = "MODERATE"
+        action = "Monitor and prepare health resources"
+    else:
+        risk = "LOW"
+        action = "Routine monitoring"
 
-        client = OpenAI(api_key=api_key)
+    if deaths > cases * 0.1:
+        transmission = "Severe outbreak pattern"
+    else:
+        transmission = "Community transmission"
 
-        prompt = f"""
-        WHO Epidemiology Analysis:
-
-        Country: {event.get('country')}
-        Cases: {event.get('cases')}
-        Deaths: {event.get('deaths')}
-
-        Provide:
-        - Risk level
-        - Transmission pattern
-        - Recommendation
-        """
-
-        res = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}]
-        )
-
-        return res.choices[0].message.content
-
-    except Exception as e:
-        return f"❌ AI Error: {str(e)}"
-
-# =========================
-# RISK MODEL (STABLE)
-# =========================
-
-def risk_model(cases, deaths):
-
-    try:
-        score = float(cases) * 0.6 + float(deaths) * 3
-
-        if score > 5000:
-            return "CRITICAL"
-        elif score > 3000:
-            return "HIGH"
-        elif score > 1500:
-            return "MODERATE"
-        else:
-            return "LOW"
-
-    except:
-        return "UNKNOWN"
+    return {
+        "country": country,
+        "cases": cases,
+        "deaths": deaths,
+        "risk": risk,
+        "transmission": transmission,
+        "recommendation": action,
+        "score": score
+    }
 
 # =========================
 # LOAD DATA
@@ -104,10 +83,10 @@ else:
     df = pd.DataFrame(columns=["country", "cases", "deaths"])
 
 # =========================
-# UI HEADER
+# TITLE
 # =========================
 
-st.title("🌍 WHO AI Enterprise Intelligence System")
+st.title("🌍 WHO AI Global Intelligence System (FREE VERSION)")
 
 # =========================
 # DASHBOARD
@@ -119,14 +98,13 @@ col1, col2, col3 = st.columns(3)
 
 col1.metric("Events", len(df))
 col2.metric("System", "ACTIVE")
-col3.metric("AI Engine", "GPT READY")
+col3.metric("AI Engine", "FREE MODE")
 
 # =========================
 # SAFETY CHECK
 # =========================
 
 if df.empty:
-
     st.warning("No data available from backend")
 
 else:
@@ -156,7 +134,7 @@ else:
         size="cases",
         color="deaths",
         hover_name="country",
-        title="WHO Global Risk Map"
+        title="WHO Global Surveillance Map (FREE AI)"
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -169,40 +147,48 @@ else:
 
     for _, row in df.iterrows():
 
-        risk = risk_model(row["cases"], row["deaths"])
+        result = who_ai_analysis(row)
 
-        if risk == "CRITICAL":
-            st.error(f"🚨 {row['country']} | Cases: {row['cases']} | Deaths: {row['deaths']}")
-        elif risk == "HIGH":
-            st.warning(f"⚠️ {row['country']} | Cases: {row['cases']} | Deaths: {row['deaths']}")
-
-    # =========================
-    # GPT ANALYST
-    # =========================
-
-    st.subheader("🧠 GPT Medical Analyst")
-
-    latest = df.iloc[-1].to_dict()
-
-    st.info(gpt_analysis(latest))
+        if result["risk"] == "CRITICAL":
+            st.error(f"🚨 {result['country']} | Cases: {result['cases']} | Deaths: {result['deaths']}")
+        elif result["risk"] == "HIGH":
+            st.warning(f"⚠️ {result['country']} | HIGH RISK")
+        else:
+            st.info(f"{result['country']} | {result['risk']}")
 
     # =========================
-    # PREDICTION ENGINE
+    # AI ANALYSIS PANEL
+    # =========================
+
+    st.subheader("🧠 WHO AI Epidemiology Engine (FREE)")
+
+    latest = df.iloc[-1]
+
+    analysis = who_ai_analysis(latest)
+
+    st.info(f"""
+    🌍 Country: {analysis['country']}
+    📊 Cases: {analysis['cases']}
+    ⚰️ Deaths: {analysis['deaths']}
+    🚨 Risk: {analysis['risk']}
+    📡 Transmission: {analysis['transmission']}
+    📌 Recommendation: {analysis['recommendation']}
+    """)
+
+    # =========================
+    # PREDICTION TABLE
     # =========================
 
     st.subheader("📈 Prediction Engine")
 
-    df["risk_level"] = df.apply(
-        lambda r: risk_model(r["cases"], r["deaths"]),
-        axis=1
-    )
+    predictions = []
 
-    df["risk_score"] = df.apply(
-        lambda r: float(r["cases"]) * 0.6 + float(r["deaths"]) * 3,
-        axis=1
-    )
+    for _, row in df.iterrows():
+        predictions.append(who_ai_analysis(row))
 
-    st.dataframe(df)
+    pred_df = pd.DataFrame(predictions)
+
+    st.dataframe(pred_df)
 
     # =========================
     # REAL-TIME STREAM SIMULATION
@@ -214,14 +200,14 @@ else:
 
     for _, row in df.tail(10).iterrows():
 
-        risk = risk_model(row["cases"], row["deaths"])
+        result = who_ai_analysis(row)
 
         with placeholder.container():
             st.write(
-                f"🌍 {row['country']} | "
-                f"Cases: {row['cases']} | "
-                f"Deaths: {row['deaths']} | "
-                f"Risk: {risk}"
+                f"🌍 {result['country']} | "
+                f"Cases: {result['cases']} | "
+                f"Deaths: {result['deaths']} | "
+                f"Risk: {result['risk']}"
             )
 
         time.sleep(0.5)
