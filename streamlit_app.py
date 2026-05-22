@@ -1,9 +1,8 @@
 import streamlit as st
 import requests
 import pandas as pd
-import time
 import plotly.express as px
-import os
+import time
 
 # =========================
 # CONFIG
@@ -18,11 +17,10 @@ st.set_page_config(
 )
 
 # =========================
-# SAFE DATA FETCH
+# SAFE BACKEND FETCH
 # =========================
 
 def fetch_data():
-
     try:
         r = requests.get(f"{API_BASE}/events", timeout=10)
         data = r.json()
@@ -35,7 +33,7 @@ def fetch_data():
         return []
 
 # =========================
-# GPT MEDICAL ANALYST (FIXED + PRODUCTION SAFE)
+# GPT ANALYST (FIXED STREAMLIT SECRETS)
 # =========================
 
 def gpt_analysis(event):
@@ -43,12 +41,15 @@ def gpt_analysis(event):
     try:
         from openai import OpenAI
 
-        client = OpenAI(
-            api_key=os.environ.get("OPENAI_API_KEY")
-        )
+        api_key = st.secrets.get("OPENAI_API_KEY", None)
+
+        if not api_key:
+            return "❌ Missing OpenAI API Key (add in Streamlit Secrets)"
+
+        client = OpenAI(api_key=api_key)
 
         prompt = f"""
-        WHO Epidemiology Intelligence Report:
+        WHO Epidemiology Analysis:
 
         Country: {event.get('country')}
         Cases: {event.get('cases')}
@@ -56,8 +57,8 @@ def gpt_analysis(event):
 
         Provide:
         - Risk level
-        - Transmission explanation
-        - Public health recommendation
+        - Transmission pattern
+        - Recommendation
         """
 
         res = client.chat.completions.create(
@@ -67,11 +68,11 @@ def gpt_analysis(event):
 
         return res.choices[0].message.content
 
-    except:
-        return "🧠 GPT unavailable (check API key or connection)"
+    except Exception as e:
+        return f"❌ AI Error: {str(e)}"
 
 # =========================
-# RISK PREDICTION ENGINE
+# RISK MODEL (STABLE)
 # =========================
 
 def risk_model(cases, deaths):
@@ -79,7 +80,7 @@ def risk_model(cases, deaths):
     try:
         score = float(cases) * 0.6 + float(deaths) * 3
 
-        if score > 6000:
+        if score > 5000:
             return "CRITICAL"
         elif score > 3000:
             return "HIGH"
@@ -92,30 +93,7 @@ def risk_model(cases, deaths):
         return "UNKNOWN"
 
 # =========================
-# TELEGRAM ALERT SYSTEM
-# =========================
-
-def send_alert(message):
-
-    try:
-        BOT_TOKEN = os.environ.get("BOT_TOKEN")
-        CHAT_ID = os.environ.get("CHAT_ID")
-
-        if not BOT_TOKEN or not CHAT_ID:
-            return
-
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-
-        requests.post(url, data={
-            "chat_id": CHAT_ID,
-            "text": message
-        })
-
-    except:
-        pass
-
-# =========================
-# DATA
+# LOAD DATA
 # =========================
 
 data = fetch_data()
@@ -126,30 +104,38 @@ else:
     df = pd.DataFrame(columns=["country", "cases", "deaths"])
 
 # =========================
-# TITLE
+# UI HEADER
 # =========================
 
 st.title("🌍 WHO AI Enterprise Intelligence System")
 
 # =========================
-# DASHBOARD METRICS
+# DASHBOARD
 # =========================
 
 st.subheader("📊 Global Intelligence Dashboard")
 
 col1, col2, col3 = st.columns(3)
 
-col1.metric("Total Events", len(df))
-col2.metric("System Status", "ACTIVE")
-col3.metric("AI Engine", "GPT-ENABLED")
+col1.metric("Events", len(df))
+col2.metric("System", "ACTIVE")
+col3.metric("AI Engine", "GPT READY")
 
 # =========================
-# MAP
+# SAFETY CHECK
 # =========================
 
-st.subheader("🌍 Global Surveillance Map")
+if df.empty:
 
-if not df.empty:
+    st.warning("No data available from backend")
+
+else:
+
+    # =========================
+    # MAP
+    # =========================
+
+    st.subheader("🌍 Global Surveillance Map")
 
     coords = {
         "Ethiopia": [9.03, 38.74],
@@ -170,80 +156,75 @@ if not df.empty:
         size="cases",
         color="deaths",
         hover_name="country",
-        title="WHO Global Risk Map (Enterprise)"
+        title="WHO Global Risk Map"
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
-# =========================
-# RISK ENGINE + ALERT SYSTEM
-# =========================
+    # =========================
+    # ALERT SYSTEM
+    # =========================
 
-st.subheader("🔔 Smart Alert System")
+    st.subheader("🔔 Smart Alerts")
 
-for _, row in df.iterrows():
+    for _, row in df.iterrows():
 
-    risk = risk_model(row["cases"], row["deaths"])
+        risk = risk_model(row["cases"], row["deaths"])
 
-    if risk == "CRITICAL":
-        st.error(f"🚨 {row['country']} | Cases: {row['cases']} | Deaths: {row['deaths']}")
-        send_alert(f"WHO ALERT: {row['country']} CRITICAL outbreak")
+        if risk == "CRITICAL":
+            st.error(f"🚨 {row['country']} | Cases: {row['cases']} | Deaths: {row['deaths']}")
+        elif risk == "HIGH":
+            st.warning(f"⚠️ {row['country']} | Cases: {row['cases']} | Deaths: {row['deaths']}")
 
-    elif risk == "HIGH":
-        st.warning(f"⚠️ {row['country']} | HIGH RISK")
+    # =========================
+    # GPT ANALYST
+    # =========================
 
-    else:
-        st.info(f"{row['country']} | {risk}")
-
-# =========================
-# GPT ANALYST
-# =========================
-
-st.subheader("🧠 GPT Medical Analyst")
-
-if not df.empty:
+    st.subheader("🧠 GPT Medical Analyst")
 
     latest = df.iloc[-1].to_dict()
 
     st.info(gpt_analysis(latest))
 
-# =========================
-# PREDICTION ENGINE
-# =========================
+    # =========================
+    # PREDICTION ENGINE
+    # =========================
 
-st.subheader("📈 Prediction Engine")
+    st.subheader("📈 Prediction Engine")
 
-if not df.empty:
+    df["risk_level"] = df.apply(
+        lambda r: risk_model(r["cases"], r["deaths"]),
+        axis=1
+    )
 
     df["risk_score"] = df.apply(
-        lambda r: risk_model(r["cases"], r["deaths"]),
+        lambda r: float(r["cases"]) * 0.6 + float(r["deaths"]) * 3,
         axis=1
     )
 
     st.dataframe(df)
 
-# =========================
-# REAL-TIME STREAM (SIMULATION)
-# =========================
+    # =========================
+    # REAL-TIME STREAM SIMULATION
+    # =========================
 
-st.subheader("🔄 Real-Time Streaming Engine")
+    st.subheader("🔄 Real-Time Stream")
 
-placeholder = st.empty()
+    placeholder = st.empty()
 
-for _, row in df.tail(10).iterrows():
+    for _, row in df.tail(10).iterrows():
 
-    risk = risk_model(row["cases"], row["deaths"])
+        risk = risk_model(row["cases"], row["deaths"])
 
-    with placeholder.container():
+        with placeholder.container():
+            st.write(
+                f"🌍 {row['country']} | "
+                f"Cases: {row['cases']} | "
+                f"Deaths: {row['deaths']} | "
+                f"Risk: {risk}"
+            )
 
-        st.write(
-            f"🌍 {row['country']} | "
-            f"Cases: {row['cases']} | "
-            f"Deaths: {row['deaths']} | "
-            f"Risk: {risk}"
-        )
-
-    time.sleep(0.5)
+        time.sleep(0.5)
 
 # =========================
 # AUTO REFRESH
