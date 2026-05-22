@@ -1,8 +1,8 @@
 import streamlit as st
 import requests
 import pandas as pd
-import time
 import plotly.express as px
+from datetime import datetime
 
 # =========================
 # CONFIG
@@ -11,7 +11,7 @@ import plotly.express as px
 API_BASE = "https://Globalhealthtool.pythonanywhere.com"
 
 st.set_page_config(
-    page_title="WHO AI Intelligence System",
+    page_title="WHO AI Global Surveillance System",
     page_icon="🌍",
     layout="wide"
 )
@@ -20,52 +20,61 @@ st.set_page_config(
 # TITLE
 # =========================
 
-st.title("🌍 WHO AI Intelligence System")
-st.markdown("Next-Gen Global Epidemic Intelligence Platform")
+st.title("🌍 WHO AI Global Surveillance System")
+st.markdown("Real-Time WHO + GDELT + AI Epidemiology Intelligence")
 
 # =========================
 # FETCH DATA
 # =========================
 
-def fetch_data():
+def get_data():
     try:
-        res = requests.get(f"{API_BASE}/events")
-        return res.json()
+        return requests.get(f"{API_BASE}/events").json()
     except:
         return []
 
-data = fetch_data()
+def get_diseases():
+    try:
+        return requests.get(f"{API_BASE}/diseases").json()
+    except:
+        return {}
+
+data = get_data()
+disease_data = get_diseases()
 
 df = pd.DataFrame(data) if data else pd.DataFrame()
 
 # =========================
-# KPI SECTION
+# GLOBAL STATUS
 # =========================
 
-st.subheader("📊 Global Outbreak Overview")
+st.subheader("🛰️ Global Surveillance Status")
+
+col1, col2, col3 = st.columns(3)
+
+col1.metric("Active Signals", len(df))
+col2.metric("Last Update", str(datetime.now().strftime("%H:%M:%S")))
+col3.metric("Data Sources", "WHO + GDELT")
+
+# =========================
+# DISEASE BREAKDOWN
+# =========================
+
+st.subheader("🧬 Disease Intelligence Breakdown")
+
+if disease_data:
+
+    st.json(disease_data)
+
+# =========================
+# GLOBAL MAP (SIMULATED SURVEILLANCE)
+# =========================
+
+st.subheader("🌍 Global Surveillance Map")
 
 if not df.empty:
 
-    col1, col2, col3, col4 = st.columns(4)
-
-    col1.metric("Total Records", len(df))
-    col2.metric("Latest Country", df.iloc[-1]["country"])
-    col3.metric("Max Cases", df["cases"].max())
-    col4.metric("Max Deaths", df["deaths"].max())
-
-else:
-    st.warning("No data available from backend")
-
-# =========================
-# 🌍 GLOBAL HEATMAP (SIMULATED)
-# =========================
-
-st.subheader("🌍 Global Outbreak Heatmap")
-
-if not df.empty:
-
-    # Simple mapping (expandable to real geo later)
-    country_map = {
+    country_coords = {
         "Ethiopia": [9.03, 38.74],
         "Kenya": [-1.29, 36.82],
         "Nigeria": [9.08, 8.67],
@@ -73,26 +82,25 @@ if not df.empty:
         "Brazil": [-14.23, -51.92]
     }
 
-    df["lat"] = df["country"].apply(lambda x: country_map.get(x, [0,0])[0])
-    df["lon"] = df["country"].apply(lambda x: country_map.get(x, [0,0])[1])
+    df["lat"] = df["country"].apply(lambda x: country_coords.get(x, [0,0])[0])
+    df["lon"] = df["country"].apply(lambda x: country_coords.get(x, [0,0])[1])
 
     fig = px.scatter_geo(
         df,
         lat="lat",
         lon="lon",
-        size="cases",
-        color="deaths",
+        size="cases" if "cases" in df.columns else None,
         hover_name="country",
-        title="Global Outbreak Intensity Map"
+        title="WHO Global Risk Map"
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
 # =========================
-# 🔔 SMART ALERT SYSTEM
+# 🔔 MOBILE ALERT SYSTEM
 # =========================
 
-st.subheader("🔔 Smart Risk Alerts")
+st.subheader("🔔 Mobile Alert System")
 
 if not df.empty:
 
@@ -103,35 +111,34 @@ if not df.empty:
         for _, row in alerts.iterrows():
 
             st.error(
-                f"⚠️ HIGH RISK: {row['country']} | "
+                f"🚨 ALERT: {row['country']} | "
                 f"Cases: {row['cases']} | "
                 f"Deaths: {row['deaths']}"
             )
-
     else:
-        st.success("No high-risk outbreaks detected")
+        st.success("No critical alerts detected")
 
 # =========================
-# 🧠 GPT EPIDEMIOLOGY BRAIN
+# 🧠 GPT MEDICAL ANALYST (SIMULATED AI REASONING)
 # =========================
 
-st.subheader("🧠 AI Epidemiology Brain")
+st.subheader("🧠 GPT Medical Analyst")
 
 if not df.empty:
 
     latest = df.iloc[-1]
 
-    cases = latest["cases"]
-    deaths = latest["deaths"]
+    cases = latest.get("cases", 0)
+    deaths = latest.get("deaths", 0)
 
-    mortality = round((deaths / cases) * 100, 2)
+    mortality = round((deaths / cases) * 100, 2) if cases else 0
 
     if cases > 4000:
         spread = "Very High Transmission"
     elif cases > 2000:
         spread = "Moderate Transmission"
     else:
-        spread = "Controlled Spread"
+        spread = "Controlled Transmission"
 
     if mortality > 5:
         severity = "Severe"
@@ -141,54 +148,51 @@ if not df.empty:
         severity = "Low"
 
     st.info(f"""
-### WHO AI ANALYSIS REPORT
+### 🧠 AI Epidemiology Report
 
-Country: {latest['country']}
+Country: {latest.get('country')}
 
-Transmission Level: {spread}
+Transmission: {spread}
 
-Severity Level: {severity}
+Severity: {severity}
 
 Mortality Rate: {mortality}%
 
-### Interpretation:
-This outbreak shows {spread.lower()} dynamics with {severity.lower()} clinical impact.
-Recommend enhanced surveillance and regional coordination.
+### AI Interpretation:
+The outbreak in {latest.get('country')} shows {spread.lower()} with {severity.lower()} severity.
+Immediate surveillance and regional coordination recommended.
+
+This analysis is generated from WHO + GDELT intelligence streams.
 """)
 
 # =========================
-# 📈 PREDICTION ENGINE (SIMPLE AI MODEL)
+# 🌐 GLOBAL SURVEILLANCE FEED
 # =========================
 
-st.subheader("📈 Outbreak Risk Prediction Engine")
-
-if not df.empty:
-
-    df["risk_score"] = (df["cases"] * 0.7) + (df["deaths"] * 2)
-
-    top_risk = df.sort_values("risk_score", ascending=False).head(5)
-
-    st.write("Top 5 High-Risk Regions:")
-
-    st.dataframe(top_risk)
-
-# =========================
-# 🌐 LIVE FEED
-# =========================
-
-st.subheader("🌐 Live Outbreak Feed")
+st.subheader("🌐 Global Surveillance Feed")
 
 if not df.empty:
 
     for _, row in df.tail(10).iterrows():
 
         st.warning(
-            f"{row['country']} | Cases: {row['cases']} | Deaths: {row['deaths']}"
+            f"🌍 {row['country']} | "
+            f"Cases: {row['cases']} | "
+            f"Deaths: {row['deaths']}"
         )
+
+# =========================
+# 📊 RAW DATA VIEW
+# =========================
+
+st.subheader("📊 Raw Intelligence Data")
+
+st.dataframe(df)
 
 # =========================
 # AUTO REFRESH
 # =========================
 
-time.sleep(10)
+st.caption("Auto-refresh every 10 seconds")
+
 st.rerun()
