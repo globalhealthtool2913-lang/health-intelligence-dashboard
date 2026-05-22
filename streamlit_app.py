@@ -5,7 +5,7 @@ import feedparser
 import time
 
 # =========================================
-# CONFIG
+# PAGE CONFIG
 # =========================================
 
 st.set_page_config(
@@ -20,14 +20,14 @@ st.caption("Stable Real-Time WHO + GDELT + AI Monitoring System")
 st.divider()
 
 # =========================================
-# SAFE DATA INGESTION (NO CRASH VERSION)
+# SAFE DATA INGESTION
 # =========================================
 
 def fetch_data():
 
     data = []
 
-    # WHO DATA
+    # WHO RSS
     try:
         feed = feedparser.parse(
             "https://www.who.int/feeds/entity/csr/don/en/rss.xml"
@@ -46,7 +46,7 @@ def fetch_data():
     except:
         pass
 
-    # GDELT DATA
+    # GDELT API
     try:
         url = "https://api.gdeltproject.org/api/v2/doc/doc?query=disease&mode=ArtList&format=json"
         r = requests.get(url, timeout=10)
@@ -67,10 +67,7 @@ def fetch_data():
     except:
         pass
 
-    # =========================================
-    # FALLBACK (GUARANTEE NO EMPTY DATA)
-    # =========================================
-
+    # Fallback (IMPORTANT)
     if len(data) == 0:
 
         data = [{
@@ -78,18 +75,18 @@ def fetch_data():
             "cases": 2983,
             "deaths": 68,
             "source": "FALLBACK",
-            "event": "No live API data available"
+            "event": "No live data available"
         }]
 
     return data
 
 # =========================================
-# AI MODEL (SAFE PREDICTION)
+# AI PREDICTION ENGINE
 # =========================================
 
 def predict(cases, deaths):
 
-    score = (cases * 0.6) + (deaths * 2)
+    score = cases * 0.6 + deaths * 2
 
     if score > 7000:
         return "CRITICAL OUTBREAK", "HIGH"
@@ -105,10 +102,7 @@ def predict(cases, deaths):
 raw = fetch_data()
 df = pd.DataFrame(raw)
 
-# =========================================
-# SAFE COLUMN HANDLING (CRASH FIX)
-# =========================================
-
+# SAFE COLUMN FIX
 for col in ["country", "cases", "deaths", "source", "event"]:
     if col not in df.columns:
         df[col] = "UNKNOWN"
@@ -152,32 +146,32 @@ col4.metric("Mode", "STABLE")
 st.divider()
 
 # =========================================
-# DASHBOARD TABLE
+# GLOBAL TABLE
 # =========================================
 
 st.subheader("🌍 Global Surveillance Dashboard")
-
 st.dataframe(df, use_container_width=True)
 
 st.divider()
 
 # =========================================
-# RISK ANALYSIS (SAFE)
+# RISK INTELLIGENCE (FIXED UI)
 # =========================================
 
 st.subheader("🚨 Risk Intelligence")
 
 if "risk" in df.columns and not df.empty:
 
-    risk_counts = df["risk"].value_counts()
+    risk_counts = df["risk"].value_counts().reset_index()
+    risk_counts.columns = ["Risk Level", "Count"]
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.dataframe(risk_counts)
+        st.dataframe(risk_counts, use_container_width=True)
 
     with col2:
-        st.bar_chart(risk_counts)
+        st.bar_chart(risk_counts.set_index("Risk Level"))
 
 else:
     st.warning("No risk data available")
@@ -194,17 +188,17 @@ latest = df.iloc[-1]
 
 st.info(
     f"""
-🌍 Country: {latest['country']}
+🌍 Country: {latest.get('country', 'N/A')}
 
-📊 Cases: {latest['cases']}
+📊 Cases: {latest.get('cases', 'N/A')}
 
-⚰️ Deaths: {latest['deaths']}
+⚰️ Deaths: {latest.get('deaths', 'N/A')}
 
-🚨 Risk: {latest['risk']}
+🚨 Risk: {latest.get('risk', 'N/A')}
 
-🧠 Prediction: {latest['prediction']}
+🧠 Prediction: {latest.get('prediction', 'N/A')}
 
-📡 Source: {latest['source']}
+📡 Source: {latest.get('source', 'N/A')}
 """
 )
 
