@@ -22,7 +22,26 @@ st.caption("Stable Simulation Mode (Streamlit Cloud Ready)")
 st.divider()
 
 # =========================================
-# SIMULATED GLOBAL DATA
+# 🧠 5 STEP ENTERPRISE ROADMAP
+# =========================================
+
+st.subheader("🧠 Enterprise Upgrade Roadmap (Your Next Steps)")
+
+steps = [
+    "1️⃣ Replace simulation with REAL WHO + GDELT live API ingestion",
+    "2️⃣ Build FastAPI backend microservices architecture",
+    "3️⃣ Add Kafka real-time streaming pipeline",
+    "4️⃣ Integrate ML forecasting (outbreak prediction model)",
+    "5️⃣ Deploy full system on AWS (Docker + CI/CD + monitoring)"
+]
+
+for s in steps:
+    st.write(s)
+
+st.divider()
+
+# =========================================
+# SIMULATED GLOBAL DATA (CURRENT SYSTEM)
 # =========================================
 
 def get_data():
@@ -61,22 +80,25 @@ st.dataframe(df, use_container_width=True)
 st.divider()
 
 # =========================================
-# CLEAN RISK DISTRIBUTION (FIXED)
+# CLEAN RISK DISTRIBUTION
 # =========================================
 
 st.subheader("🚨 Risk Distribution")
 
 risk_counts = df["risk"].value_counts()
 
-colA, colB = st.columns(2)
+risk_df = risk_counts.reset_index()
+risk_df.columns = ["Risk Level", "Count"]
 
-with colA:
-    st.write("📊 Risk Table")
-    st.dataframe(risk_counts)
+col1, col2 = st.columns(2)
 
-with colB:
-    st.write("📈 Risk Chart")
-    st.bar_chart(risk_counts)
+with col1:
+    st.write("📊 Table View")
+    st.dataframe(risk_df, use_container_width=True)
+
+with col2:
+    st.write("📈 Chart View")
+    st.bar_chart(risk_df.set_index("Risk Level"))
 
 st.divider()
 
@@ -124,11 +146,11 @@ st.divider()
 
 st.subheader("🔄 Live Global Stream")
 
-stream_box = st.container()
+container = st.container()
 
 for _, row in df.iterrows():
 
-    with stream_box:
+    with container:
 
         st.write(
             f"🌍 **{row['country']}** | "
@@ -144,7 +166,7 @@ for _, row in df.iterrows():
 st.divider()
 
 # =========================================
-# AUTO REFRESH (STREAMLIT CLOUD SAFE)
+# FOOTER AUTO REFRESH
 # =========================================
 
 time.sleep(5)
