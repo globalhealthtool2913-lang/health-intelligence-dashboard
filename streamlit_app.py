@@ -22,10 +22,10 @@ st.caption("Stable Simulation Mode (Streamlit Cloud Ready)")
 st.divider()
 
 # =========================================
-# SIMULATED DATA (SAFE FOR STREAMLIT CLOUD)
+# SIMULATED GLOBAL DATA
 # =========================================
 
-def load_data():
+def get_data():
 
     return [
         {"country": "Ethiopia", "cases": 2983, "deaths": 68, "risk": "MODERATE", "prediction": "STABLE", "source": "WHO"},
@@ -35,8 +35,7 @@ def load_data():
         {"country": "USA", "cases": 8450, "deaths": 310, "risk": "HIGH", "prediction": "SPREADING", "source": "GDELT"}
     ]
 
-data = load_data()
-df = pd.DataFrame(data)
+df = pd.DataFrame(get_data())
 
 # =========================================
 # METRICS
@@ -52,7 +51,7 @@ col4.metric("AI Engine", "READY")
 st.divider()
 
 # =========================================
-# GLOBAL TABLE
+# GLOBAL DASHBOARD
 # =========================================
 
 st.subheader("🌍 Global Surveillance Dashboard")
@@ -69,9 +68,15 @@ st.subheader("🚨 Risk Distribution")
 
 risk_counts = df["risk"].value_counts()
 
-st.dataframe(risk_counts)
+colA, colB = st.columns(2)
 
-st.bar_chart(risk_counts)
+with colA:
+    st.write("📊 Risk Table")
+    st.dataframe(risk_counts)
+
+with colB:
+    st.write("📈 Risk Chart")
+    st.bar_chart(risk_counts)
 
 st.divider()
 
@@ -114,16 +119,16 @@ st.info(
 st.divider()
 
 # =========================================
-# LIVE STREAM (CLEAN + FIXED)
+# LIVE STREAM SIMULATION
 # =========================================
 
 st.subheader("🔄 Live Global Stream")
 
-stream_placeholder = st.container()
+stream_box = st.container()
 
 for _, row in df.iterrows():
 
-    with stream_placeholder:
+    with stream_box:
 
         st.write(
             f"🌍 **{row['country']}** | "
@@ -134,12 +139,12 @@ for _, row in df.iterrows():
             f"📡 Source: {row['source']}"
         )
 
-    time.sleep(0.3)
+    time.sleep(0.25)
 
 st.divider()
 
 # =========================================
-# FOOTER AUTO REFRESH
+# AUTO REFRESH (STREAMLIT CLOUD SAFE)
 # =========================================
 
 time.sleep(5)
