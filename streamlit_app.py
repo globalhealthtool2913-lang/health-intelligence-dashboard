@@ -2,28 +2,23 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
-import feedparser
-import time
 import plotly.express as px
 
-# =========================================
-# SAFE CONFIG (STREAMLIT CLOUD SECRETS)
-# =========================================
+# =========================
+# CONFIG
+# =========================
 
 st.set_page_config(
-    page_title="WHO AI Intelligence Platform",
+    page_title="WHO AI System",
     page_icon="🌍",
     layout="wide"
 )
 
-st.title("🌍 WHO AI Enterprise Intelligence Platform")
-st.caption("Secure Real-Time WHO + GDELT + AI Monitoring System")
+st.title("🌍 WHO AI Intelligence System")
 
-st.divider()
-
-# =========================================
-# TELEGRAM SAFE SETUP
-# =========================================
+# =========================
+# TELEGRAM (SAFE)
+# =========================
 
 try:
     TELEGRAM_TOKEN = st.secrets["TELEGRAM_TOKEN"]
@@ -32,8 +27,7 @@ except:
     TELEGRAM_TOKEN = None
     CHAT_ID = None
 
-
-def send_telegram(message):
+def send_alert(msg):
 
     if not TELEGRAM_TOKEN or not CHAT_ID:
         return
@@ -43,169 +37,66 @@ def send_telegram(message):
     try:
         requests.post(url, json={
             "chat_id": CHAT_ID,
-            "text": message
-        }, timeout=10)
+            "text": msg
+        }, timeout=5)
     except:
         pass
 
-# =========================================
-# DATA INGESTION ENGINE
-# =========================================
+# =========================
+# DATA (SAFE SIMULATION)
+# =========================
 
-def fetch_data():
+df = pd.DataFrame([
+    {"country": "Ethiopia", "cases": 2983, "deaths": 68, "risk": "LOW"},
+    {"country": "India", "cases": 5230, "deaths": 112, "risk": "HIGH"},
+    {"country": "Brazil", "cases": 7120, "deaths": 201, "risk": "HIGH"},
+    {"country": "Kenya", "cases": 1200, "deaths": 30, "risk": "LOW"},
+    {"country": "USA", "cases": 8450, "deaths": 310, "risk": "HIGH"}
+])
 
-    data = []
+# =========================
+# DASHBOARD METRICS
+# =========================
 
-    # WHO DATA
-    try:
-        feed = feedparser.parse(
-            "https://www.who.int/feeds/entity/csr/don/en/rss.xml"
-        )
+col1, col2, col3 = st.columns(3)
 
-        for entry in feed.entries[:3]:
-            data.append({
-                "country": "Global",
-                "cases": 4000,
-                "deaths": 120,
-                "source": "WHO",
-                "event": entry.title
-            })
-    except:
-        pass
-
-    # GDELT DATA
-    try:
-        url = "https://api.gdeltproject.org/api/v2/doc/doc?query=disease&mode=ArtList&format=json"
-        r = requests.get(url, timeout=10)
-
-        if r.status_code == 200:
-            j = r.json()
-
-            for a in j.get("articles", [])[:3]:
-                data.append({
-                    "country": "Global",
-                    "cases": 6000,
-                    "deaths": 200,
-                    "source": "GDELT",
-                    "event": a.get("title", "news")
-                })
-    except:
-        pass
-
-    # FALLBACK
-    if len(data) == 0:
-        data = [{
-            "country": "Ethiopia",
-            "cases": 2983,
-            "deaths": 68,
-            "source": "FALLBACK",
-            "event": "No live data available"
-        }]
-
-    return data
-
-# =========================================
-# AI ENGINE
-# =========================================
-
-def predict(cases, deaths):
-
-    score = cases * 0.65 + deaths * 2.5
-
-    if score > 7000:
-        return "CRITICAL OUTBREAK", "HIGH"
-    elif score > 4000:
-        return "RISING RISK", "MODERATE"
-    else:
-        return "STABLE", "LOW"
-
-# =========================================
-# LOAD DATA
-# =========================================
-
-raw = fetch_data()
-df = pd.DataFrame(raw)
-
-for col in ["country", "cases", "deaths", "source", "event"]:
-    if col not in df.columns:
-        df[col] = "UNKNOWN"
-
-# =========================================
-# APPLY AI MODEL
-# =========================================
-
-results = []
-
-for _, row in df.iterrows():
-
-    cases = int(row["cases"]) if str(row["cases"]).isdigit() else 0
-    deaths = int(row["deaths"]) if str(row["deaths"]).isdigit() else 0
-
-    pred, risk = predict(cases, deaths)
-
-    forecast = "CONTROLLED"
-    if cases > 7000:
-        forecast = "EXPONENTIAL GROWTH"
-    elif cases > 4000:
-        forecast = "MODERATE SPREAD"
-
-    results.append({
-        "country": row["country"],
-        "cases": cases,
-        "deaths": deaths,
-        "source": row["source"],
-        "event": row["event"],
-        "prediction": pred,
-        "risk": risk,
-        "forecast": forecast
-    })
-
-df = pd.DataFrame(results)
-
-# =========================================
-# METRICS
-# =========================================
-
-col1, col2, col3, col4 = st.columns(4)
-
-col1.metric("Events", len(df))
-col2.metric("System", "ACTIVE")
-col3.metric("AI Engine", "ENTERPRISE")
-col4.metric("Mode", "STABLE")
+col1.metric("Countries", len(df))
+col2.metric("System Status", "ACTIVE")
+col3.metric("AI Engine", "READY")
 
 st.divider()
 
-# =========================================
-# DASHBOARD
-# =========================================
+# =========================
+# TABLE
+# =========================
 
 st.subheader("🌍 Global Surveillance Dashboard")
 st.dataframe(df, use_container_width=True)
 
 st.divider()
 
-# =========================================
-# RISK INTELLIGENCE
-# =========================================
+# =========================
+# RISK ANALYSIS
+# =========================
 
 st.subheader("🚨 Risk Intelligence")
 
 risk_counts = df["risk"].value_counts().reset_index()
-risk_counts.columns = ["Risk Level", "Count"]
+risk_counts.columns = ["Risk", "Count"]
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.dataframe(risk_counts, use_container_width=True)
+    st.dataframe(risk_counts)
 
 with col2:
-    st.bar_chart(risk_counts.set_index("Risk Level"))
+    st.bar_chart(risk_counts.set_index("Risk"))
 
 st.divider()
 
-# =========================================
-# AI ENGINE PANEL
-# =========================================
+# =========================
+# AI ENGINE
+# =========================
 
 st.subheader("🧠 AI Epidemiology Engine")
 
@@ -215,26 +106,22 @@ st.markdown(f"""
 ### 🌍 Country: {latest['country']}
 📊 Cases: **{latest['cases']}**  
 ⚰️ Deaths: **{latest['deaths']}**  
-🚨 Risk: **{latest['risk']}**  
-🧠 Prediction: **{latest['prediction']}**  
-📈 Forecast: **{latest['forecast']}**  
-📡 Source: {latest['source']}
+🚨 Risk: **{latest['risk']}**
 """)
 
 st.divider()
 
-# =========================================
-# GLOBAL HEATMAP
-# =========================================
+# =========================
+# HEATMAP
+# =========================
 
 st.subheader("🌍 Global Heatmap")
 
-map_df = df.copy()
-map_df["lat"] = np.random.uniform(-60, 80, len(map_df))
-map_df["lon"] = np.random.uniform(-120, 120, len(map_df))
+df["lat"] = np.random.uniform(-60, 80, len(df))
+df["lon"] = np.random.uniform(-120, 120, len(df))
 
 fig = px.scatter_geo(
-    map_df,
+    df,
     lat="lat",
     lon="lon",
     color="risk",
@@ -246,11 +133,11 @@ st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
 
-# =========================================
+# =========================
 # LIVE STREAM
-# =========================================
+# =========================
 
-st.subheader("🔄 Live Global Stream")
+st.subheader("🔄 Live Stream")
 
 for _, row in df.iterrows():
 
@@ -258,32 +145,20 @@ for _, row in df.iterrows():
         f"🌍 {row['country']} | "
         f"📊 {row['cases']} | "
         f"⚰️ {row['deaths']} | "
-        f"🚨 {row['risk']} | "
-        f"🧠 {row['prediction']} | "
-        f"📈 {row['forecast']} | "
-        f"📡 {row['source']} | "
-        f"📰 {row['event']}"
+        f"🚨 {row['risk']}"
     )
 
-# =========================================
-# TELEGRAM ALERT TRIGGER
-# =========================================
+# =========================
+# TELEGRAM ALERTS (HIGH RISK ONLY)
+# =========================
 
 for _, row in df.iterrows():
 
     if row["risk"] == "HIGH":
 
-        send_telegram(
+        send_alert(
             f"🚨 WHO ALERT\n"
             f"🌍 {row['country']}\n"
             f"📊 Cases: {row['cases']}\n"
-            f"⚰️ Deaths: {row['deaths']}\n"
-            f"🧠 Prediction: {row['prediction']}"
+            f"⚰️ Deaths: {row['deaths']}"
         )
-
-# =========================================
-# AUTO REFRESH
-# =========================================
-
-time.sleep(5)
-st.rerun()
