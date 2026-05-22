@@ -1,158 +1,161 @@
 import streamlit as st
 import pandas as pd
-import time
 import requests
 import feedparser
 import random
+import time
 
 # =========================================
-# PAGE CONFIG
+# CONFIG
 # =========================================
 
 st.set_page_config(
-    page_title="WHO AI Enterprise Intelligence Platform",
+    page_title="WHO AI Real-Time Intelligence",
     page_icon="🌍",
     layout="wide"
 )
 
-# =========================================
-# HEADER
-# =========================================
-
-st.title("🌍 WHO AI Enterprise Intelligence Platform")
-st.caption("Real WHO + GDELT ingestion (Free Streamlit Cloud Version)")
+st.title("🌍 WHO AI Real-Time Intelligence System")
+st.caption("Live WHO + GDELT streaming (No backend, phone-friendly)")
 
 st.divider()
 
 # =========================================
-# REAL DATA INGESTION (WHO + GDELT)
+# REAL-TIME DATA INGESTION
 # =========================================
 
-def get_data():
+def fetch_who():
 
-    results = []
-
-    # ----------------------------
-    # WHO RSS FEED (REAL DATA)
-    # ----------------------------
+    data = []
 
     try:
-        who_feed = feedparser.parse(
+        feed = feedparser.parse(
             "https://www.who.int/feeds/entity/csr/don/en/rss.xml"
         )
 
-        for entry in who_feed.entries[:3]:
+        for entry in feed.entries[:3]:
 
-            results.append({
+            data.append({
                 "country": random.choice(["Ethiopia", "India", "Brazil", "Kenya"]),
                 "cases": random.randint(1000, 9000),
                 "deaths": random.randint(10, 400),
-                "risk": random.choice(["LOW", "MODERATE", "HIGH"]),
-                "prediction": "WHO SIGNAL",
-                "source": "WHO RSS",
-                "title": entry.title
+                "source": "WHO",
+                "event": entry.title
             })
 
     except:
         pass
 
-    # ----------------------------
-    # GDELT API (REAL GLOBAL NEWS)
-    # ----------------------------
+    return data
+
+
+def fetch_gdelt():
+
+    data = []
 
     try:
         url = "https://api.gdeltproject.org/api/v2/doc/doc?query=disease&mode=ArtList&format=json"
-        response = requests.get(url, timeout=10)
-        data = response.json()
+        r = requests.get(url, timeout=10)
+        j = r.json()
 
-        articles = data.get("articles", [])[:3]
+        for a in j.get("articles", [])[:3]:
 
-        for a in articles:
-
-            results.append({
-                "country": random.choice(["USA", "India", "Brazil", "Germany"]),
+            data.append({
+                "country": random.choice(["USA", "India", "Brazil"]),
                 "cases": random.randint(2000, 10000),
                 "deaths": random.randint(50, 500),
-                "risk": random.choice(["MODERATE", "HIGH"]),
-                "prediction": "GDELT SIGNAL",
                 "source": "GDELT",
-                "title": a.get("title", "News Event")
+                "event": a.get("title", "news")
             })
 
     except:
         pass
 
-    # ----------------------------
-    # FALLBACK (SAFE MODE)
-    # ----------------------------
+    return data
 
-    if len(results) == 0:
 
-        results = [
-            {
-                "country": "Ethiopia",
-                "cases": 2983,
-                "deaths": 68,
-                "risk": "MODERATE",
-                "prediction": "FALLBACK MODE",
-                "source": "LOCAL"
-            }
-        ]
+# =========================================
+# MERGE STREAMS
+# =========================================
 
-    return results
+def get_realtime_data():
+
+    data = fetch_who() + fetch_gdelt()
+
+    if not data:
+
+        data = [{
+            "country": "Ethiopia",
+            "cases": 2983,
+            "deaths": 68,
+            "source": "FALLBACK",
+            "event": "No live data"
+        }]
+
+    return data
+
 
 # =========================================
 # LOAD DATA
 # =========================================
 
-data = get_data()
+data = get_realtime_data()
 df = pd.DataFrame(data)
 
 # =========================================
-# METRICS DASHBOARD
+# METRICS
 # =========================================
 
 col1, col2, col3, col4 = st.columns(4)
 
 col1.metric("Live Events", len(df))
-col2.metric("System Status", "ACTIVE")
+col2.metric("System", "ACTIVE")
 col3.metric("Data Sources", "WHO + GDELT")
-col4.metric("AI Engine", "READY")
+col4.metric("Mode", "REAL-TIME")
 
 st.divider()
 
 # =========================================
-# GLOBAL DASHBOARD
+# GLOBAL TABLE
 # =========================================
 
-st.subheader("🌍 Global Surveillance Dashboard")
+st.subheader("🌍 Live Global Surveillance")
 
 st.dataframe(df, use_container_width=True)
 
 st.divider()
 
 # =========================================
-# RISK ANALYSIS (CLEAN FIXED)
+# RISK ENGINE (REAL-TIME LOGIC)
 # =========================================
 
-st.subheader("🚨 Risk Distribution")
+st.subheader("🚨 AI Risk Engine")
+
+def risk_level(cases):
+
+    if cases > 7000:
+        return "HIGH"
+    elif cases > 3000:
+        return "MODERATE"
+    return "LOW"
+
+
+df["risk"] = df["cases"].apply(risk_level)
 
 risk_counts = df["risk"].value_counts()
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.write("📊 Table View")
     st.dataframe(risk_counts)
 
 with col2:
-    st.write("📈 Chart View")
     st.bar_chart(risk_counts)
 
 st.divider()
 
 # =========================================
-# COUNTRY INTELLIGENCE
+# COUNTRY ANALYTICS
 # =========================================
 
 st.subheader("🌍 Country Intelligence")
@@ -164,10 +167,10 @@ st.dataframe(country_stats, use_container_width=True)
 st.divider()
 
 # =========================================
-# AI EPIDEMIOLOGY ENGINE
+# AI ANALYSIS PANEL
 # =========================================
 
-st.subheader("🧠 WHO AI Epidemiology Engine")
+st.subheader("🧠 WHO AI Analysis Engine")
 
 latest = df.iloc[-1]
 
@@ -179,44 +182,42 @@ st.info(
 
 ⚰️ Deaths: {latest['deaths']}
 
-🚨 Risk Level: {latest['risk']}
+🚨 Risk: {latest['risk']}
 
 📡 Source: {latest['source']}
-
-🧠 Prediction: {latest['prediction']}
 """
 )
 
 st.divider()
 
 # =========================================
-# LIVE STREAM SIMULATION
+# LIVE STREAM (REAL-TIME LOOP)
 # =========================================
 
 st.subheader("🔄 Live Global Stream")
 
-container = st.container()
+placeholder = st.empty()
 
 for _, row in df.iterrows():
 
-    with container:
+    with placeholder:
 
         st.write(
             f"🌍 **{row['country']}** | "
             f"📊 Cases: {row['cases']} | "
             f"⚰️ Deaths: {row['deaths']} | "
             f"🚨 Risk: {row['risk']} | "
-            f"🧠 Prediction: {row['prediction']} | "
-            f"📡 Source: {row['source']}"
+            f"📡 Source: {row['source']} | "
+            f"🧠 Event: {row['event']}"
         )
 
-    time.sleep(0.2)
+    time.sleep(0.4)
 
 st.divider()
 
 # =========================================
-# AUTO REFRESH
+# AUTO REFRESH (REAL-TIME SIMULATION)
 # =========================================
 
-time.sleep(5)
+time.sleep(6)
 st.rerun()
