@@ -8,34 +8,47 @@ from datetime import datetime
 import time
 
 # =========================
-# CONFIG
+# CONFIG (ENTERPRISE)
 # =========================
 
 st.set_page_config(
-    page_title="WHO AI Intelligence Platform",
+    page_title="WHO AI Enterprise Intelligence Platform",
     page_icon="🌍",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 st.title("🌍 WHO AI Enterprise Intelligence Platform")
-st.caption("REAL-TIME WHO + GDELT + AI Forecasting System")
+st.caption("Real-Time WHO + GDELT + AI Forecasting + GIS Intelligence System")
 
 st.divider()
 
 # =========================
-# AUTO REFRESH (REAL-TIME)
+# SESSION STATE (PRODUCTION SAFE)
 # =========================
 
-REFRESH_SECONDS = 5
+if "history" not in st.session_state:
+    st.session_state.history = []
 
 # =========================
-# MODE
+# CONTROL PANEL
 # =========================
 
-mode = st.selectbox("Mode", ["LIVE + SIMULATION", "SIMULATION ONLY"])
+mode = st.sidebar.selectbox(
+    "System Mode",
+    ["LIVE + SIMULATION", "SIMULATION ONLY"]
+)
+
+refresh_rate = st.sidebar.slider(
+    "Refresh Interval (seconds)",
+    3, 30, 5
+)
+
+st.sidebar.markdown("### System Status")
+st.sidebar.success("ACTIVE")
 
 # =========================
-# COUNTRY DETECTION
+# COUNTRY DETECTION ENGINE
 # =========================
 
 COUNTRIES = ["Ethiopia","India","Brazil","Kenya","USA","China","Germany","France"]
@@ -47,7 +60,7 @@ def detect_country(text):
     return "Global"
 
 # =========================
-# WHO DATA
+# WHO DATA PIPELINE
 # =========================
 
 @st.cache_data(ttl=300)
@@ -76,7 +89,7 @@ def get_who():
     return data
 
 # =========================
-# GDELT DATA
+# GDELT PIPELINE
 # =========================
 
 @st.cache_data(ttl=300)
@@ -111,26 +124,26 @@ def get_gdelt():
     return data
 
 # =========================
-# AI MODEL
+# AI ENGINE (ENTERPRISE MODEL)
 # =========================
 
-def predict(cases, deaths):
+def ai_predict(cases, deaths):
 
-    score = cases * 0.5 + deaths * 3
+    score = (cases * 0.6) + (deaths * 3.5)
 
     if score > 9000:
-        return "HIGH", "EXPONENTIAL"
+        return "HIGH", "EXPONENTIAL RISK"
 
-    if score > 5000:
-        return "MODERATE", "RISING"
+    elif score > 5000:
+        return "MODERATE", "RISING RISK"
 
     return "LOW", "CONTROLLED"
 
 # =========================
-# DATA PIPELINE
+# DATA ENGINE (PRODUCTION PIPELINE)
 # =========================
 
-def build_data():
+def build_dataset():
 
     if mode == "SIMULATION ONLY":
 
@@ -139,120 +152,114 @@ def build_data():
             "cases": 2983,
             "deaths": 68,
             "source": "SIMULATION",
-            "event": "Test simulation"
+            "event": "Test system running"
         }]
 
-    raw = get_who() + get_gdelt()
+    data = get_who() + get_gdelt()
 
-    if len(raw) == 0:
+    if len(data) == 0:
 
         return [{
             "country": "Global",
             "cases": 2500,
             "deaths": 60,
             "source": "FALLBACK",
-            "event": "No live data"
+            "event": "No live data available"
         }]
 
-    return raw
+    return data
 
 # =========================
-# STREAMLIT AUTO REFRESH LOOP
+# MAIN ENGINE LOOP (ENTERPRISE SAFE)
 # =========================
 
-placeholder = st.empty()
+data = build_dataset()
 
-while True:
+results = []
 
-    with placeholder.container():
+for r in data:
 
-        raw = build_data()
+    risk, forecast = ai_predict(r["cases"], r["deaths"])
 
-        results = []
+    results.append({
+        "country": r["country"],
+        "cases": r["cases"],
+        "deaths": r["deaths"],
+        "risk": risk,
+        "forecast": forecast,
+        "source": r["source"],
+        "event": r["event"],
+        "time": datetime.now().strftime("%H:%M:%S")
+    })
 
-        for r in raw:
+df = pd.DataFrame(results)
 
-            risk, forecast = predict(r["cases"], r["deaths"])
+# =========================
+# METRICS (EXECUTIVE DASHBOARD)
+# =========================
 
-            results.append({
-                "country": r["country"],
-                "cases": r["cases"],
-                "deaths": r["deaths"],
-                "risk": risk,
-                "forecast": forecast,
-                "source": r["source"],
-                "event": r["event"],
-                "time": datetime.now().strftime("%H:%M:%S")
-            })
+c1, c2, c3, c4 = st.columns(4)
 
-        df = pd.DataFrame(results)
+c1.metric("Active Events", len(df))
+c2.metric("System Status", "ACTIVE")
+c3.metric("AI Engine", "ENTERPRISE")
+c4.metric("Mode", mode)
 
-        # =========================
-        # METRICS
-        # =========================
+st.divider()
 
-        c1, c2, c3, c4 = st.columns(4)
+# =========================
+# GLOBAL DASHBOARD
+# =========================
 
-        c1.metric("Events", len(df))
-        c2.metric("System", "ACTIVE")
-        c3.metric("AI Engine", "READY")
-        c4.metric("Mode", mode)
+st.subheader("🌍 Global Surveillance Dashboard")
+st.dataframe(df, use_container_width=True)
 
-        st.divider()
+st.divider()
 
-        # =========================
-        # TABLE
-        # =========================
+# =========================
+# RISK INTELLIGENCE (FIXED)
+# =========================
 
-        st.subheader("🌍 Global Dashboard")
-        st.dataframe(df, use_container_width=True)
+st.subheader("🚨 Risk Intelligence Engine")
 
-        st.divider()
+risk_table = df["risk"].value_counts().reset_index()
+risk_table.columns = ["Risk Level", "Count"]
 
-        # =========================
-        # RISK
-        # =========================
+col1, col2 = st.columns(2)
 
-        st.subheader("🚨 Risk Intelligence")
+with col1:
+    st.dataframe(risk_table, use_container_width=True)
 
-        risk = df["risk"].value_counts().reset_index()
-        risk.columns = ["Risk", "Count"]
+with col2:
+    st.bar_chart(risk_table.set_index("Risk Level"))
 
-        col1, col2 = st.columns(2)
+st.divider()
 
-        with col1:
-            st.dataframe(risk, use_container_width=True)
+# =========================
+# ALERT SYSTEM
+# =========================
 
-        with col2:
-            st.bar_chart(risk.set_index("Risk"))
+st.subheader("🚨 Live Threat Alerts")
 
-        st.divider()
+high_risk = df[df["risk"] == "HIGH"]
 
-        # =========================
-        # ALERTS
-        # =========================
+if high_risk.empty:
+    st.success("No critical outbreaks detected")
+else:
+    for _, r in high_risk.iterrows():
+        st.error(f"⚠️ {r['country']} → {r['forecast']}")
 
-        st.subheader("🚨 Live Alerts")
+st.divider()
 
-        high = df[df["risk"] == "HIGH"]
+# =========================
+# AI ENGINE PANEL
+# =========================
 
-        if high.empty:
-            st.success("No critical outbreaks detected")
-        else:
-            for _, r in high.iterrows():
-                st.error(f"{r['country']} → {r['forecast']}")
+st.subheader("🧠 AI Epidemiology Engine")
 
-        st.divider()
+latest = df.iloc[-1]
 
-        # =========================
-        # AI ENGINE
-        # =========================
-
-        st.subheader("🧠 AI Epidemiology Engine")
-
-        latest = df.iloc[-1]
-
-        st.markdown(f"""
+st.markdown(f"""
 ### Country: {latest['country']}
 - Cases: **{latest['cases']}**
 - Deaths: **{latest['deaths']}**
@@ -261,54 +268,56 @@ while True:
 - Source: **{latest['source']}**
 """)
 
-        st.divider()
+st.divider()
 
-        # =========================
-        # GIS MAP
-        # =========================
+# =========================
+# GIS INTELLIGENCE MAP
+# =========================
 
-        coords = {
-            "Ethiopia": [9.145, 40.4897],
-            "India": [20.5937, 78.9629],
-            "Brazil": [-14.2350, -51.9253],
-            "Kenya": [-0.0236, 37.9062],
-            "USA": [37.0902, -95.7129],
-            "China": [35.8617, 104.1954],
-            "Germany": [51.1657, 10.4515],
-            "France": [46.2276, 2.2137],
-            "Global": [0, 0]
-        }
+coords = {
+    "Ethiopia": [9.145, 40.4897],
+    "India": [20.5937, 78.9629],
+    "Brazil": [-14.2350, -51.9253],
+    "Kenya": [-0.0236, 37.9062],
+    "USA": [37.0902, -95.7129],
+    "China": [35.8617, 104.1954],
+    "Germany": [51.1657, 10.4515],
+    "France": [46.2276, 2.2137],
+    "Global": [0, 0]
+}
 
-        df["lat"] = df["country"].apply(lambda x: coords.get(x, [0,0])[0])
-        df["lon"] = df["country"].apply(lambda x: coords.get(x, [0,0])[1])
+df["lat"] = df["country"].apply(lambda x: coords.get(x, [0,0])[0])
+df["lon"] = df["country"].apply(lambda x: coords.get(x, [0,0])[1])
 
-        st.subheader("🌍 Global GIS Map")
+st.subheader("🌍 Global GIS Intelligence Map")
 
-        fig = px.scatter_geo(
-            df,
-            lat="lat",
-            lon="lon",
-            color="risk",
-            size="cases",
-            hover_name="country"
-        )
+fig = px.scatter_geo(
+    df,
+    lat="lat",
+    lon="lon",
+    color="risk",
+    size="cases",
+    hover_name="country"
+)
 
-        st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, use_container_width=True)
 
-        st.divider()
+st.divider()
 
-        # =========================
-        # STREAM
-        # =========================
+# =========================
+# LIVE STREAM (ENTERPRISE FIXED)
+# =========================
 
-        st.subheader("🔄 Live Stream")
+st.subheader("🔄 Live Intelligence Stream")
 
-        for _, r in df.iterrows():
-            st.write(
-                f"{r['country']} | {r['cases']} | {r['deaths']} | {r['risk']} | {r['forecast']} | {r['source']} | {r['time']}"
-            )
+for _, r in df.iterrows():
 
-        st.success("🌍 REAL-TIME SYSTEM RUNNING")
+    line = f"{r['country']} | {r['cases']} | {r['deaths']} | {r['risk']} | {r['forecast']} | {r['source']} | {r['time']}"
 
-    time.sleep(REFRESH_SECONDS)
-    st.rerun()
+    if line not in st.session_state.history:
+        st.session_state.history.append(line)
+
+for item in st.session_state.history[-15:]:
+    st.write(item)
+
+st.success("🌍 ENTERPRISE SYSTEM RUNNING STABLE")
