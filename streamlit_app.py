@@ -5,33 +5,24 @@ import requests
 import feedparser
 import plotly.express as px
 from datetime import datetime
-import time
 
 # =========================
-# CONFIG (ENTERPRISE)
+# CONFIG
 # =========================
 
 st.set_page_config(
-    page_title="WHO AI Enterprise Intelligence Platform",
+    page_title="WHO Global AI Intelligence System",
     page_icon="🌍",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-st.title("🌍 WHO AI Enterprise Intelligence Platform")
-st.caption("Real-Time WHO + GDELT + AI Forecasting + GIS Intelligence System")
+st.title("🌍 WHO Global AI Intelligence System")
+st.caption("Real-Time WHO + GDELT + AI Forecasting + Global Risk Monitoring")
 
 st.divider()
 
 # =========================
-# SESSION STATE (PRODUCTION SAFE)
-# =========================
-
-if "history" not in st.session_state:
-    st.session_state.history = []
-
-# =========================
-# CONTROL PANEL
+# SIDEBAR CONTROL
 # =========================
 
 mode = st.sidebar.selectbox(
@@ -39,19 +30,16 @@ mode = st.sidebar.selectbox(
     ["LIVE + SIMULATION", "SIMULATION ONLY"]
 )
 
-refresh_rate = st.sidebar.slider(
-    "Refresh Interval (seconds)",
-    3, 30, 5
-)
-
-st.sidebar.markdown("### System Status")
-st.sidebar.success("ACTIVE")
+st.sidebar.success("SYSTEM ACTIVE")
 
 # =========================
-# COUNTRY DETECTION ENGINE
+# COUNTRY ENGINE
 # =========================
 
-COUNTRIES = ["Ethiopia","India","Brazil","Kenya","USA","China","Germany","France"]
+COUNTRIES = [
+    "Ethiopia","India","Brazil","Kenya",
+    "USA","China","Germany","France","Global"
+]
 
 def detect_country(text):
     for c in COUNTRIES:
@@ -60,7 +48,7 @@ def detect_country(text):
     return "Global"
 
 # =========================
-# WHO DATA PIPELINE
+# WHO INGESTION
 # =========================
 
 @st.cache_data(ttl=300)
@@ -77,8 +65,8 @@ def get_who():
 
             data.append({
                 "country": detect_country(e.title),
-                "cases": 2000 + len(e.title) * 10,
-                "deaths": 50 + len(e.title) % 100,
+                "cases": 2000 + len(e.title) * 12,
+                "deaths": 40 + len(e.title) % 90,
                 "source": "WHO",
                 "event": e.title
             })
@@ -89,7 +77,7 @@ def get_who():
     return data
 
 # =========================
-# GDELT PIPELINE
+# GDELT INGESTION
 # =========================
 
 @st.cache_data(ttl=300)
@@ -112,8 +100,8 @@ def get_gdelt():
 
                 data.append({
                     "country": detect_country(title),
-                    "cases": 3000 + len(title) * 8,
-                    "deaths": 80 + len(title) % 120,
+                    "cases": 3000 + len(title) * 10,
+                    "deaths": 70 + len(title) % 110,
                     "source": "GDELT",
                     "event": title
                 })
@@ -124,26 +112,29 @@ def get_gdelt():
     return data
 
 # =========================
-# AI ENGINE (ENTERPRISE MODEL)
+# AI ENGINE (GLOBAL MODEL)
 # =========================
 
-def ai_predict(cases, deaths):
+def ai_model(cases, deaths):
 
-    score = (cases * 0.6) + (deaths * 3.5)
+    score = cases * 0.65 + deaths * 3.8
 
     if score > 9000:
-        return "HIGH", "EXPONENTIAL RISK"
+        return "CRITICAL", "EXPONENTIAL SPREAD"
 
-    elif score > 5000:
+    elif score > 6000:
+        return "HIGH", "RAPID GROWTH"
+
+    elif score > 3000:
         return "MODERATE", "RISING RISK"
 
     return "LOW", "CONTROLLED"
 
 # =========================
-# DATA ENGINE (PRODUCTION PIPELINE)
+# DATA PIPELINE
 # =========================
 
-def build_dataset():
+def load_data():
 
     if mode == "SIMULATION ONLY":
 
@@ -152,7 +143,7 @@ def build_dataset():
             "cases": 2983,
             "deaths": 68,
             "source": "SIMULATION",
-            "event": "Test system running"
+            "event": "System test mode"
         }]
 
     data = get_who() + get_gdelt()
@@ -170,16 +161,16 @@ def build_dataset():
     return data
 
 # =========================
-# MAIN ENGINE LOOP (ENTERPRISE SAFE)
+# BUILD DATAFRAME
 # =========================
 
-data = build_dataset()
+raw = load_data()
 
 results = []
 
-for r in data:
+for r in raw:
 
-    risk, forecast = ai_predict(r["cases"], r["deaths"])
+    risk, forecast = ai_model(r["cases"], r["deaths"])
 
     results.append({
         "country": r["country"],
@@ -195,20 +186,20 @@ for r in data:
 df = pd.DataFrame(results)
 
 # =========================
-# METRICS (EXECUTIVE DASHBOARD)
+# METRICS DASHBOARD
 # =========================
 
 c1, c2, c3, c4 = st.columns(4)
 
-c1.metric("Active Events", len(df))
-c2.metric("System Status", "ACTIVE")
-c3.metric("AI Engine", "ENTERPRISE")
+c1.metric("Events", len(df))
+c2.metric("System", "ACTIVE")
+c3.metric("AI Engine", "GLOBAL READY")
 c4.metric("Mode", mode)
 
 st.divider()
 
 # =========================
-# GLOBAL DASHBOARD
+# GLOBAL TABLE
 # =========================
 
 st.subheader("🌍 Global Surveillance Dashboard")
@@ -217,10 +208,10 @@ st.dataframe(df, use_container_width=True)
 st.divider()
 
 # =========================
-# RISK INTELLIGENCE (FIXED)
+# RISK INTELLIGENCE
 # =========================
 
-st.subheader("🚨 Risk Intelligence Engine")
+st.subheader("🚨 Global Risk Intelligence")
 
 risk_table = df["risk"].value_counts().reset_index()
 risk_table.columns = ["Risk Level", "Count"]
@@ -239,14 +230,18 @@ st.divider()
 # ALERT SYSTEM
 # =========================
 
-st.subheader("🚨 Live Threat Alerts")
+st.subheader("🚨 Live Global Alerts")
 
-high_risk = df[df["risk"] == "HIGH"]
+high_risk = df[df["risk"] == "CRITICAL"]
 
 if high_risk.empty:
-    st.success("No critical outbreaks detected")
+
+    st.success("No critical outbreaks detected worldwide")
+
 else:
+
     for _, r in high_risk.iterrows():
+
         st.error(f"⚠️ {r['country']} → {r['forecast']}")
 
 st.divider()
@@ -260,18 +255,18 @@ st.subheader("🧠 AI Epidemiology Engine")
 latest = df.iloc[-1]
 
 st.markdown(f"""
-### Country: {latest['country']}
-- Cases: **{latest['cases']}**
-- Deaths: **{latest['deaths']}**
-- Risk: **{latest['risk']}**
-- Forecast: **{latest['forecast']}**
-- Source: **{latest['source']}**
+### 🌍 Country: {latest['country']}
+- 📊 Cases: **{latest['cases']}**
+- ⚰️ Deaths: **{latest['deaths']}**
+- 🚨 Risk: **{latest['risk']}**
+- 🧠 Forecast: **{latest['forecast']}**
+- 📡 Source: **{latest['source']}**
 """)
 
 st.divider()
 
 # =========================
-# GIS INTELLIGENCE MAP
+# GIS MAP
 # =========================
 
 coords = {
@@ -305,19 +300,15 @@ st.plotly_chart(fig, use_container_width=True)
 st.divider()
 
 # =========================
-# LIVE STREAM (ENTERPRISE FIXED)
+# LIVE STREAM
 # =========================
 
-st.subheader("🔄 Live Intelligence Stream")
+st.subheader("🔄 Global Live Stream")
 
 for _, r in df.iterrows():
 
-    line = f"{r['country']} | {r['cases']} | {r['deaths']} | {r['risk']} | {r['forecast']} | {r['source']} | {r['time']}"
+    st.write(
+        f"{r['country']} | {r['cases']} | {r['deaths']} | {r['risk']} | {r['forecast']} | {r['source']} | {r['time']}"
+    )
 
-    if line not in st.session_state.history:
-        st.session_state.history.append(line)
-
-for item in st.session_state.history[-15:]:
-    st.write(item)
-
-st.success("🌍 ENTERPRISE SYSTEM RUNNING STABLE")
+st.success("🌍 GLOBAL WHO AI SYSTEM RUNNING STABLE")
