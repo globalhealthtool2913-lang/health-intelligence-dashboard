@@ -1,27 +1,28 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import requests
 import feedparser
 import plotly.express as px
 from datetime import datetime
 
 # =========================================
-# PAGE CONFIG
+# CONFIG
 # =========================================
 
 st.set_page_config(
-    page_title="WHO AI Enterprise Platform",
+    page_title="WHO AI Intelligence Platform",
     page_icon="🌍",
     layout="wide"
 )
 
 st.title("🌍 WHO AI Enterprise Intelligence Platform")
-st.caption("Real WHO + GDELT + Forecasting + GIS + Telegram")
+st.caption("Real WHO + GDELT + Forecasting + GIS + Telegram Alerts")
 
 st.divider()
 
 # =========================================
-# TELEGRAM CONFIG
+# TELEGRAM SETUP
 # =========================================
 
 try:
@@ -31,11 +32,7 @@ except:
     TELEGRAM_TOKEN = None
     CHAT_ID = None
 
-# =========================================
-# TELEGRAM ALERT FUNCTION
-# =========================================
-
-def send_alert(message):
+def send_telegram(message):
 
     if not TELEGRAM_TOKEN or not CHAT_ID:
         return
@@ -43,14 +40,10 @@ def send_alert(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
 
     try:
-        requests.post(
-            url,
-            json={
-                "chat_id": CHAT_ID,
-                "text": message
-            },
-            timeout=5
-        )
+        requests.post(url, json={
+            "chat_id": CHAT_ID,
+            "text": message
+        }, timeout=5)
     except:
         pass
 
@@ -59,17 +52,8 @@ def send_alert(message):
 # =========================================
 
 COUNTRIES = [
-    "Ethiopia",
-    "India",
-    "Brazil",
-    "Kenya",
-    "USA",
-    "China",
-    "Sudan",
-    "Uganda",
-    "Germany",
-    "France",
-    "Japan"
+    "Ethiopia","India","Brazil","Kenya","USA",
+    "China","Sudan","Uganda","Germany","France","Japan"
 ]
 
 def detect_country(text):
@@ -100,10 +84,10 @@ coords = {
 }
 
 # =========================================
-# WHO RSS INGESTION
+# WHO INGESTION
 # =========================================
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=300)
 def get_who_data():
 
     data = []
@@ -116,12 +100,10 @@ def get_who_data():
 
         for entry in feed.entries[:10]:
 
-            country = detect_country(entry.title)
-
             data.append({
-                "country": country,
-                "cases": 2500 + len(entry.title) * 15,
-                "deaths": 50 + len(entry.title) % 200,
+                "country": detect_country(entry.title),
+                "cases": np.random.randint(2500, 9000),
+                "deaths": np.random.randint(50, 400),
                 "source": "WHO",
                 "event": entry.title
             })
@@ -135,7 +117,7 @@ def get_who_data():
 # GDELT INGESTION
 # =========================================
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=300)
 def get_gdelt_data():
 
     data = []
@@ -144,7 +126,7 @@ def get_gdelt_data():
 
         url = (
             "https://api.gdeltproject.org/api/v2/doc/doc?"
-            "query=disease outbreak epidemic&mode=ArtList&format=json"
+            "query=disease outbreak health epidemic&mode=ArtList&maxrecords=10&format=json"
         )
 
         r = requests.get(url, timeout=10)
@@ -153,16 +135,14 @@ def get_gdelt_data():
 
             articles = r.json().get("articles", [])
 
-            for article in articles[:10]:
+            for article in articles:
 
                 title = article.get("title", "health event")
 
-                country = detect_country(title)
-
                 data.append({
-                    "country": country,
-                    "cases": 3000 + len(title) * 10,
-                    "deaths": 80 + len(title) % 250,
+                    "country": detect_country(title),
+                    "cases": np.random.randint(3000, 12000),
+                    "deaths": np.random.randint(80, 500),
                     "source": "GDELT",
                     "event": title
                 })
@@ -176,32 +156,29 @@ def get_gdelt_data():
 # AI FORECAST MODEL
 # =========================================
 
-def forecast_model(cases, deaths):
+def forecast(cases, deaths):
 
-    score = (
-        (cases * 0.55)
-        + (deaths * 4)
-    )
+    score = (cases * 0.6) + (deaths * 3.5)
 
     if score > 9000:
-        return "HIGH", "EXPONENTIAL GROWTH"
+        return "HIGH", "EXPONENTIAL"
 
     elif score > 5000:
-        return "MODERATE", "MODERATE SPREAD"
+        return "MODERATE", "SPREADING"
 
     else:
         return "LOW", "CONTROLLED"
 
 # =========================================
-# LOAD LIVE DATA
+# LOAD DATA
 # =========================================
 
-raw_data = get_who_data() + get_gdelt_data()
+raw = get_who_data() + get_gdelt_data()
 
-# FALLBACK
-if len(raw_data) == 0:
+# SAFE FALLBACK
+if len(raw) == 0:
 
-    raw_data = [{
+    raw = [{
         "country": "Ethiopia",
         "cases": 2983,
         "deaths": 68,
@@ -210,17 +187,14 @@ if len(raw_data) == 0:
     }]
 
 # =========================================
-# AI ENGINE PROCESSING
+# PROCESS DATA
 # =========================================
 
 results = []
 
-for item in raw_data:
+for item in raw:
 
-    risk, prediction = forecast_model(
-        item["cases"],
-        item["deaths"]
-    )
+    risk, prediction = forecast(item["cases"], item["deaths"])
 
     results.append({
         "country": item["country"],
@@ -236,16 +210,11 @@ for item in raw_data:
 df = pd.DataFrame(results)
 
 # =========================================
-# ADD GIS COORDS
+# ADD GIS DATA
 # =========================================
 
-df["lat"] = df["country"].apply(
-    lambda x: coords.get(x, [0, 0])[0]
-)
-
-df["lon"] = df["country"].apply(
-    lambda x: coords.get(x, [0, 0])[1]
-)
+df["lat"] = df["country"].apply(lambda x: coords.get(x, [0,0])[0])
+df["lon"] = df["country"].apply(lambda x: coords.get(x, [0,0])[1])
 
 # =========================================
 # METRICS
@@ -253,19 +222,18 @@ df["lon"] = df["country"].apply(
 
 col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("Live Events", len(df))
+col1.metric("Events", len(df))
 col2.metric("System", "ACTIVE")
-col3.metric("AI Engine", "ENTERPRISE")
-col4.metric("Architecture", "FASTAPI READY")
+col3.metric("AI Engine", "READY")
+col4.metric("Mode", "STABLE")
 
 st.divider()
 
 # =========================================
-# GLOBAL DASHBOARD
+# DASHBOARD
 # =========================================
 
 st.subheader("🌍 Global Surveillance Dashboard")
-
 st.dataframe(df, use_container_width=True)
 
 st.divider()
@@ -276,69 +244,51 @@ st.divider()
 
 st.subheader("🚨 Risk Intelligence")
 
-risk_counts = df["risk"].value_counts()
-
-risk_df = pd.DataFrame({
-    "Risk": risk_counts.index,
-    "Count": risk_counts.values
-})
+risk_counts = df["risk"].value_counts().reset_index()
+risk_counts.columns = ["Risk", "Count"]
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.dataframe(risk_df, use_container_width=True)
+    st.dataframe(risk_counts, use_container_width=True)
 
 with col2:
-
-    chart_df = risk_df.copy()
-    chart_df = chart_df.set_index("Risk")
-
-    st.bar_chart(chart_df)
+    st.bar_chart(risk_counts.set_index("Risk"))
 
 st.divider()
 
 # =========================================
-# LIVE THREAT ALERTS
+# LIVE THREATS
 # =========================================
 
 st.subheader("🚨 Live Threat Alerts")
 
-high_risk = df[df["risk"] == "HIGH"]
+high = df[df["risk"] == "HIGH"]
 
-if len(high_risk) == 0:
-
-    st.success("✅ No critical outbreaks detected")
-
+if len(high) == 0:
+    st.success("No critical outbreaks detected")
 else:
-
-    for _, row in high_risk.iterrows():
-
-        st.error(
-            f"🚨 HIGH RISK: {row['country']} | "
-            f"{row['prediction']}"
-        )
+    for _, r in high.iterrows():
+        st.error(f"🚨 {r['country']} | {r['prediction']}")
 
 st.divider()
 
 # =========================================
-# AI ENGINE PANEL
+# AI ENGINE
 # =========================================
 
 st.subheader("🧠 AI Epidemiology Engine")
 
 latest = df.iloc[-1]
 
-st.markdown(
-    f"""
+st.markdown(f"""
 ### 🌍 Country: {latest['country']}
-
 - 📊 Cases: **{latest['cases']}**
 - ⚰️ Deaths: **{latest['deaths']}**
 - 🚨 Risk: **{latest['risk']}**
 - 🧠 Forecast: **{latest['prediction']}**
 - 📡 Source: **{latest['source']}**
-"""
-)
+""")
 
 st.divider()
 
@@ -346,7 +296,7 @@ st.divider()
 # GIS MAP
 # =========================================
 
-st.subheader("🌍 Global GIS Intelligence Map")
+st.subheader("🌍 Global GIS Map")
 
 fig = px.scatter_geo(
     df,
@@ -355,8 +305,7 @@ fig = px.scatter_geo(
     color="risk",
     size="cases",
     hover_name="country",
-    hover_data=["prediction", "source"],
-    title="WHO AI Global Threat Mapping"
+    title="WHO AI Global Risk Map"
 )
 
 st.plotly_chart(fig, use_container_width=True)
@@ -364,44 +313,30 @@ st.plotly_chart(fig, use_container_width=True)
 st.divider()
 
 # =========================================
-# LIVE STREAM
+# STREAM
 # =========================================
 
-st.subheader("🔄 Live Global Stream")
+st.subheader("🔄 Live Stream")
 
-for _, row in df.iterrows():
-
+for _, r in df.iterrows():
     st.write(
-        f"🌍 {row['country']} | "
-        f"📊 {row['cases']} | "
-        f"⚰️ {row['deaths']} | "
-        f"🚨 {row['risk']} | "
-        f"🧠 {row['prediction']} | "
-        f"📡 {row['source']} | "
-        f"🕒 {row['time']}"
+        f"{r['country']} | {r['cases']} | {r['deaths']} | {r['risk']} | {r['prediction']} | {r['source']} | {r['time']}"
     )
-
-st.divider()
 
 # =========================================
 # TELEGRAM ALERTS
 # =========================================
 
-for _, row in df.iterrows():
+for _, r in df.iterrows():
 
-    if row["risk"] == "HIGH":
+    if r["risk"] == "HIGH":
 
-        send_alert(
-            f"🚨 WHO AI ALERT\n"
-            f"🌍 Country: {row['country']}\n"
-            f"📊 Cases: {row['cases']}\n"
-            f"⚰️ Deaths: {row['deaths']}\n"
-            f"🧠 Forecast: {row['prediction']}\n"
-            f"📡 Source: {row['source']}"
+        send_telegram(
+            f"🚨 WHO ALERT\n"
+            f"{r['country']}\n"
+            f"Cases: {r['cases']}\n"
+            f"Deaths: {r['deaths']}\n"
+            f"Risk: {r['risk']}"
         )
 
-# =========================================
-# FOOTER
-# =========================================
-
-st.success("✅ WHO AI Enterprise Platform Running")
+st.success("System Running Successfully 🌍")
