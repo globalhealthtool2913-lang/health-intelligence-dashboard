@@ -22,20 +22,13 @@ st.caption("Stable WHO + GDELT + AI Forecasting System")
 st.divider()
 
 # =========================
-# SESSION STATE (FIX DUPLICATION)
-# =========================
-
-if "history" not in st.session_state:
-    st.session_state.history = []
-
-# =========================
 # MODE
 # =========================
 
 mode = st.selectbox("Mode", ["LIVE + SIMULATION", "SIMULATION ONLY"])
 
 # =========================
-# COUNTRY DETECTION
+# COUNTRIES
 # =========================
 
 COUNTRIES = ["Ethiopia","India","Brazil","Kenya","USA","China","Germany","France"]
@@ -121,7 +114,7 @@ def predict(cases, deaths):
     if score > 9000:
         return "HIGH", "EXPONENTIAL"
 
-    elif score > 5000:
+    if score > 5000:
         return "MODERATE", "RISING"
 
     return "LOW", "CONTROLLED"
@@ -137,7 +130,7 @@ if mode == "SIMULATION ONLY":
         "cases": 2983,
         "deaths": 68,
         "source": "SIMULATION",
-        "event": "Test mode"
+        "event": "Test simulation mode"
     }]
 
 else:
@@ -151,7 +144,7 @@ if len(raw) == 0:
         "cases": 2500,
         "deaths": 60,
         "source": "FALLBACK",
-        "event": "No data"
+        "event": "No data available"
     }]
 
 # =========================
@@ -178,7 +171,7 @@ for r in raw:
 df = pd.DataFrame(results)
 
 # =========================
-# GIS COORDINATES
+# GIS MAP DATA
 # =========================
 
 coords = {
@@ -219,7 +212,7 @@ st.dataframe(df, use_container_width=True)
 st.divider()
 
 # =========================
-# RISK ANALYSIS
+# RISK TABLE
 # =========================
 
 st.subheader("🚨 Risk Intelligence")
@@ -245,7 +238,7 @@ st.subheader("🚨 Live Alerts")
 
 high = df[df["risk"] == "HIGH"]
 
-if len(high) == 0:
+if high.empty:
     st.success("No critical outbreaks detected")
 else:
     for _, r in high.iterrows():
@@ -270,4 +263,37 @@ st.markdown(f"""
 - Source: **{latest['source']}**
 """)
 
-st
+st.divider()
+
+# =========================
+# GIS MAP
+# =========================
+
+st.subheader("🌍 Global GIS Map")
+
+fig = px.scatter_geo(
+    df,
+    lat="lat",
+    lon="lon",
+    color="risk",
+    size="cases",
+    hover_name="country"
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+st.divider()
+
+# =========================
+# LIVE STREAM (FIXED CLEAN VERSION)
+# =========================
+
+st.subheader("🔄 Live Stream")
+
+for _, r in df.iterrows():
+
+    st.write(
+        f"{r['country']} | {r['cases']} | {r['deaths']} | {r['risk']} | {r['forecast']} | {r['source']} | {r['time']}"
+    )
+
+st.success("🌍 System Running Clean & Stable")
