@@ -1,4 +1,4 @@
-import streamlit as st
+ import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
@@ -363,4 +363,4 @@ for _, r in df.iterrows():
             f"Risk: {r['risk']}"
         )
 
-st.success("🌍 WHO AI System Running Stable")
+st.success("🌍 WHO AI System Running Stable")  
