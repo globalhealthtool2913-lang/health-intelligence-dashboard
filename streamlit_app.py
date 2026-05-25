@@ -6,9 +6,9 @@ import feedparser
 import plotly.express as px
 from datetime import datetime
 
-# =========================================
+# =========================
 # CONFIG
-# =========================================
+# =========================
 
 st.set_page_config(
     page_title="WHO AI Intelligence Platform",
@@ -17,79 +17,34 @@ st.set_page_config(
 )
 
 st.title("🌍 WHO AI Enterprise Intelligence Platform")
-st.caption("Stable WHO + GDELT + AI + GIS + Telegram")
+st.caption("Stable Real-Time WHO + GDELT + AI Forecasting")
 
 st.divider()
 
-# =========================================
+# =========================
 # MODE
-# =========================================
+# =========================
 
 mode = st.selectbox(
-    "Data Mode",
+    "Mode",
     ["LIVE + SIMULATION", "SIMULATION ONLY"]
 )
 
-# =========================================
-# TELEGRAM
-# =========================================
+# =========================
+# COUNTRY DETECTION
+# =========================
 
-try:
-    TELEGRAM_TOKEN = st.secrets["TELEGRAM_TOKEN"]
-    CHAT_ID = st.secrets["CHAT_ID"]
-except:
-    TELEGRAM_TOKEN = None
-    CHAT_ID = None
-
-def send_telegram(msg):
-    if not TELEGRAM_TOKEN or not CHAT_ID:
-        return
-
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-
-    try:
-        requests.post(url, json={"chat_id": CHAT_ID, "text": msg}, timeout=5)
-    except:
-        pass
-
-# =========================================
-# COUNTRY DETECTION (SAFE)
-# =========================================
-
-COUNTRIES = [
-    "Ethiopia","India","Brazil","Kenya","USA",
-    "China","Sudan","Uganda","Germany","France","Japan"
-]
+COUNTRIES = ["Ethiopia","India","Brazil","Kenya","USA","China","Germany","France"]
 
 def detect_country(text):
-    text = text.lower()
     for c in COUNTRIES:
-        if c.lower() in text:
+        if c.lower() in text.lower():
             return c
     return "Global"
 
-# =========================================
-# GIS COORDINATES
-# =========================================
-
-coords = {
-    "Ethiopia": [9.145, 40.4897],
-    "India": [20.5937, 78.9629],
-    "Brazil": [-14.2350, -51.9253],
-    "Kenya": [-0.0236, 37.9062],
-    "USA": [37.0902, -95.7129],
-    "China": [35.8617, 104.1954],
-    "Sudan": [12.8628, 30.2176],
-    "Uganda": [1.3733, 32.2903],
-    "Germany": [51.1657, 10.4515],
-    "France": [46.2276, 2.2137],
-    "Japan": [36.2048, 138.2529],
-    "Global": [0, 0]
-}
-
-# =========================================
+# =========================
 # WHO DATA
-# =========================================
+# =========================
 
 @st.cache_data(ttl=300)
 def get_who():
@@ -101,14 +56,14 @@ def get_who():
             "https://www.who.int/feeds/entity/csr/don/en/rss.xml"
         )
 
-        for entry in feed.entries[:10]:
+        for e in feed.entries[:10]:
 
             data.append({
-                "country": detect_country(entry.title),
-                "cases": 2000 + len(entry.title) * 12,
-                "deaths": 50 + len(entry.title) % 100,
+                "country": detect_country(e.title),
+                "cases": 2000 + len(e.title) * 10,
+                "deaths": 50 + len(e.title) % 100,
                 "source": "WHO",
-                "event": entry.title
+                "event": e.title
             })
 
     except:
@@ -116,9 +71,9 @@ def get_who():
 
     return data
 
-# =========================================
+# =========================
 # GDELT DATA
-# =========================================
+# =========================
 
 @st.cache_data(ttl=300)
 def get_gdelt():
@@ -126,8 +81,7 @@ def get_gdelt():
     data = []
 
     try:
-
-        url = "https://api.gdeltproject.org/api/v2/doc/doc?query=health disease outbreak&mode=ArtList&format=json"
+        url = "https://api.gdeltproject.org/api/v2/doc/doc?query=health outbreak&mode=ArtList&format=json"
 
         r = requests.get(url, timeout=10)
 
@@ -142,7 +96,7 @@ def get_gdelt():
                 data.append({
                     "country": detect_country(title),
                     "cases": 3000 + len(title) * 8,
-                    "deaths": 70 + len(title) % 120,
+                    "deaths": 80 + len(title) % 120,
                     "source": "GDELT",
                     "event": title
                 })
@@ -152,11 +106,11 @@ def get_gdelt():
 
     return data
 
-# =========================================
-# AI MODEL
-# =========================================
+# =========================
+# AI MODEL (SIMPLE BUT STABLE)
+# =========================
 
-def model(cases, deaths):
+def predict(cases, deaths):
 
     score = cases * 0.5 + deaths * 3
 
@@ -168,9 +122,9 @@ def model(cases, deaths):
 
     return "LOW", "CONTROLLED"
 
-# =========================================
+# =========================
 # DATA PIPELINE
-# =========================================
+# =========================
 
 if mode == "SIMULATION ONLY":
 
@@ -179,38 +133,40 @@ if mode == "SIMULATION ONLY":
         "cases": 2983,
         "deaths": 68,
         "source": "SIMULATION",
-        "event": "Baseline simulation"
+        "event": "Test simulation mode"
     }]
 
 else:
 
     raw = get_who() + get_gdelt()
 
+# fallback safety
 if len(raw) == 0:
+
     raw = [{
         "country": "Global",
         "cases": 2500,
         "deaths": 60,
         "source": "FALLBACK",
-        "event": "No data available"
+        "event": "No live data available"
     }]
 
-# =========================================
-# PROCESS
-# =========================================
+# =========================
+# PROCESS DATA
+# =========================
 
 results = []
 
 for r in raw:
 
-    risk, pred = model(r["cases"], r["deaths"])
+    risk, forecast = predict(r["cases"], r["deaths"])
 
     results.append({
         "country": r["country"],
         "cases": r["cases"],
         "deaths": r["deaths"],
         "risk": risk,
-        "prediction": pred,
+        "forecast": forecast,
         "source": r["source"],
         "event": r["event"],
         "time": datetime.now().strftime("%H:%M:%S")
@@ -218,38 +174,50 @@ for r in raw:
 
 df = pd.DataFrame(results)
 
-# =========================================
-# GIS
-# =========================================
+# =========================
+# GIS DATA
+# =========================
+
+coords = {
+    "Ethiopia": [9.145, 40.4897],
+    "India": [20.5937, 78.9629],
+    "Brazil": [-14.2350, -51.9253],
+    "Kenya": [-0.0236, 37.9062],
+    "USA": [37.0902, -95.7129],
+    "China": [35.8617, 104.1954],
+    "Germany": [51.1657, 10.4515],
+    "France": [46.2276, 2.2137],
+    "Global": [0, 0]
+}
 
 df["lat"] = df["country"].apply(lambda x: coords.get(x, [0,0])[0])
 df["lon"] = df["country"].apply(lambda x: coords.get(x, [0,0])[1])
 
-# =========================================
+# =========================
 # METRICS
-# =========================================
+# =========================
 
 c1, c2, c3, c4 = st.columns(4)
 
 c1.metric("Events", len(df))
 c2.metric("System", "ACTIVE")
-c3.metric("AI", "READY")
+c3.metric("AI Engine", "READY")
 c4.metric("Mode", mode)
 
 st.divider()
 
-# =========================================
+# =========================
 # DASHBOARD
-# =========================================
+# =========================
 
 st.subheader("🌍 Global Dashboard")
 st.dataframe(df, use_container_width=True)
 
 st.divider()
 
-# =========================================
-# RISK
-# =========================================
+# =========================
+# RISK ANALYSIS
+# =========================
 
 st.subheader("🚨 Risk Intelligence")
 
@@ -266,45 +234,46 @@ with col2:
 
 st.divider()
 
-# =========================================
+# =========================
 # ALERTS
-# =========================================
+# =========================
 
 st.subheader("🚨 Live Alerts")
 
 high = df[df["risk"] == "HIGH"]
 
 if len(high) == 0:
-    st.success("No outbreaks detected")
+    st.success("No critical outbreaks detected")
 else:
     for _, r in high.iterrows():
-        st.error(f"{r['country']} | {r['prediction']}")
+        st.error(f"{r['country']} → {r['forecast']}")
 
 st.divider()
 
-# =========================================
-# AI PANEL
-# =========================================
+# =========================
+# AI ENGINE
+# =========================
+
+st.subheader("🧠 AI Epidemiology Engine")
 
 latest = df.iloc[-1]
-
-st.subheader("🧠 AI Engine")
 
 st.markdown(f"""
 ### Country: {latest['country']}
 - Cases: **{latest['cases']}**
 - Deaths: **{latest['deaths']}**
 - Risk: **{latest['risk']}**
-- Prediction: **{latest['prediction']}**
+- Forecast: **{latest['forecast']}**
+- Source: **{latest['source']}**
 """)
 
 st.divider()
 
-# =========================================
-# MAP
-# =========================================
+# =========================
+# GIS MAP
+# =========================
 
-st.subheader("🌍 GIS Map")
+st.subheader("🌍 Global GIS Map")
 
 fig = px.scatter_geo(
     df,
@@ -317,24 +286,15 @@ fig = px.scatter_geo(
 
 st.plotly_chart(fig, use_container_width=True)
 
-st.divider()
-
-# =========================================
+# =========================
 # STREAM
-# =========================================
+# =========================
 
 st.subheader("🔄 Live Stream")
 
 for _, r in df.iterrows():
-    st.write(f"{r['country']} | {r['cases']} | {r['deaths']} | {r['risk']} | {r['prediction']} | {r['source']} | {r['time']}")
+    st.write(
+        f"{r['country']} | {r['cases']} | {r['deaths']} | {r['risk']} | {r['forecast']} | {r['source']} | {r['time']}"
+    )
 
-# =========================================
-# TELEGRAM
-# =========================================
-
-for _, r in df.iterrows():
-
-    if r["risk"] == "HIGH":
-        send_telegram(f"ALERT: {r['country']} | {r['prediction']}")
-
-st.success("System Running 🌍")
+st.success("🌍 System Running Stable")
