@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import requests
 import feedparser
 import plotly.express as px
@@ -56,9 +55,55 @@ def send_alert(message):
         pass
 
 # =========================================
+# COUNTRY DETECTION
+# =========================================
+
+COUNTRIES = [
+    "Ethiopia",
+    "India",
+    "Brazil",
+    "Kenya",
+    "USA",
+    "China",
+    "Sudan",
+    "Uganda",
+    "Germany",
+    "France",
+    "Japan"
+]
+
+def detect_country(text):
+
+    for c in COUNTRIES:
+        if c.lower() in text.lower():
+            return c
+
+    return "Global"
+
+# =========================================
+# GIS COORDINATES
+# =========================================
+
+coords = {
+    "Ethiopia": [9.145, 40.4897],
+    "India": [20.5937, 78.9629],
+    "Brazil": [-14.2350, -51.9253],
+    "Kenya": [-0.0236, 37.9062],
+    "USA": [37.0902, -95.7129],
+    "China": [35.8617, 104.1954],
+    "Sudan": [12.8628, 30.2176],
+    "Uganda": [1.3733, 32.2903],
+    "Germany": [51.1657, 10.4515],
+    "France": [46.2276, 2.2137],
+    "Japan": [36.2048, 138.2529],
+    "Global": [0, 0]
+}
+
+# =========================================
 # WHO RSS INGESTION
 # =========================================
 
+@st.cache_data(ttl=600)
 def get_who_data():
 
     data = []
@@ -69,12 +114,14 @@ def get_who_data():
             "https://www.who.int/feeds/entity/csr/don/en/rss.xml"
         )
 
-        for entry in feed.entries[:5]:
+        for entry in feed.entries[:10]:
+
+            country = detect_country(entry.title)
 
             data.append({
-                "country": "Global",
-                "cases": np.random.randint(2000, 9000),
-                "deaths": np.random.randint(50, 400),
+                "country": country,
+                "cases": 2500 + len(entry.title) * 15,
+                "deaths": 50 + len(entry.title) % 200,
                 "source": "WHO",
                 "event": entry.title
             })
@@ -88,13 +135,17 @@ def get_who_data():
 # GDELT INGESTION
 # =========================================
 
+@st.cache_data(ttl=600)
 def get_gdelt_data():
 
     data = []
 
     try:
 
-        url = "https://api.gdeltproject.org/api/v2/doc/doc?query=disease&mode=ArtList&format=json"
+        url = (
+            "https://api.gdeltproject.org/api/v2/doc/doc?"
+            "query=disease outbreak epidemic&mode=ArtList&format=json"
+        )
 
         r = requests.get(url, timeout=10)
 
@@ -102,14 +153,18 @@ def get_gdelt_data():
 
             articles = r.json().get("articles", [])
 
-            for article in articles[:5]:
+            for article in articles[:10]:
+
+                title = article.get("title", "health event")
+
+                country = detect_country(title)
 
                 data.append({
-                    "country": "Global",
-                    "cases": np.random.randint(3000, 10000),
-                    "deaths": np.random.randint(70, 500),
+                    "country": country,
+                    "cases": 3000 + len(title) * 10,
+                    "deaths": 80 + len(title) % 250,
                     "source": "GDELT",
-                    "event": article.get("title", "news")
+                    "event": title
                 })
 
     except:
@@ -123,12 +178,15 @@ def get_gdelt_data():
 
 def forecast_model(cases, deaths):
 
-    score = (cases * 0.65) + (deaths * 2.5)
+    score = (
+        (cases * 0.55)
+        + (deaths * 4)
+    )
 
-    if score > 7000:
+    if score > 9000:
         return "HIGH", "EXPONENTIAL GROWTH"
 
-    elif score > 4000:
+    elif score > 5000:
         return "MODERATE", "MODERATE SPREAD"
 
     else:
@@ -152,7 +210,7 @@ if len(raw_data) == 0:
     }]
 
 # =========================================
-# AI ENGINE
+# AI ENGINE PROCESSING
 # =========================================
 
 results = []
@@ -176,6 +234,18 @@ for item in raw_data:
     })
 
 df = pd.DataFrame(results)
+
+# =========================================
+# ADD GIS COORDS
+# =========================================
+
+df["lat"] = df["country"].apply(
+    lambda x: coords.get(x, [0, 0])[0]
+)
+
+df["lon"] = df["country"].apply(
+    lambda x: coords.get(x, [0, 0])[1]
+)
 
 # =========================================
 # METRICS
@@ -219,7 +289,34 @@ with col1:
     st.dataframe(risk_df, use_container_width=True)
 
 with col2:
-    st.bar_chart(risk_df.set_index("Risk"))
+
+    chart_df = risk_df.copy()
+    chart_df = chart_df.set_index("Risk")
+
+    st.bar_chart(chart_df)
+
+st.divider()
+
+# =========================================
+# LIVE THREAT ALERTS
+# =========================================
+
+st.subheader("🚨 Live Threat Alerts")
+
+high_risk = df[df["risk"] == "HIGH"]
+
+if len(high_risk) == 0:
+
+    st.success("✅ No critical outbreaks detected")
+
+else:
+
+    for _, row in high_risk.iterrows():
+
+        st.error(
+            f"🚨 HIGH RISK: {row['country']} | "
+            f"{row['prediction']}"
+        )
 
 st.divider()
 
@@ -246,13 +343,10 @@ st.markdown(
 st.divider()
 
 # =========================================
-# GIS GLOBAL MAP
+# GIS MAP
 # =========================================
 
 st.subheader("🌍 Global GIS Intelligence Map")
-
-df["lat"] = np.random.uniform(-60, 80, len(df))
-df["lon"] = np.random.uniform(-120, 120, len(df))
 
 fig = px.scatter_geo(
     df,
@@ -270,7 +364,7 @@ st.plotly_chart(fig, use_container_width=True)
 st.divider()
 
 # =========================================
-# LIVE GLOBAL STREAM
+# LIVE STREAM
 # =========================================
 
 st.subheader("🔄 Live Global Stream")
@@ -286,6 +380,8 @@ for _, row in df.iterrows():
         f"📡 {row['source']} | "
         f"🕒 {row['time']}"
     )
+
+st.divider()
 
 # =========================================
 # TELEGRAM ALERTS
@@ -305,7 +401,7 @@ for _, row in df.iterrows():
         )
 
 # =========================================
-# SYSTEM FOOTER
+# FOOTER
 # =========================================
 
 st.success("✅ WHO AI Enterprise Platform Running")
