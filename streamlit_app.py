@@ -17,18 +17,22 @@ st.set_page_config(
 )
 
 st.title("🌍 WHO AI Enterprise Intelligence Platform")
-st.caption("Stable Real-Time WHO + GDELT + AI Forecasting")
+st.caption("Stable WHO + GDELT + AI Forecasting System")
 
 st.divider()
+
+# =========================
+# SESSION STATE (FIX DUPLICATION)
+# =========================
+
+if "history" not in st.session_state:
+    st.session_state.history = []
 
 # =========================
 # MODE
 # =========================
 
-mode = st.selectbox(
-    "Mode",
-    ["LIVE + SIMULATION", "SIMULATION ONLY"]
-)
+mode = st.selectbox("Mode", ["LIVE + SIMULATION", "SIMULATION ONLY"])
 
 # =========================
 # COUNTRY DETECTION
@@ -107,7 +111,7 @@ def get_gdelt():
     return data
 
 # =========================
-# AI MODEL (SIMPLE BUT STABLE)
+# AI MODEL
 # =========================
 
 def predict(cases, deaths):
@@ -133,14 +137,13 @@ if mode == "SIMULATION ONLY":
         "cases": 2983,
         "deaths": 68,
         "source": "SIMULATION",
-        "event": "Test simulation mode"
+        "event": "Test mode"
     }]
 
 else:
 
     raw = get_who() + get_gdelt()
 
-# fallback safety
 if len(raw) == 0:
 
     raw = [{
@@ -148,7 +151,7 @@ if len(raw) == 0:
         "cases": 2500,
         "deaths": 60,
         "source": "FALLBACK",
-        "event": "No live data available"
+        "event": "No data"
     }]
 
 # =========================
@@ -175,7 +178,7 @@ for r in raw:
 df = pd.DataFrame(results)
 
 # =========================
-# GIS DATA
+# GIS COORDINATES
 # =========================
 
 coords = {
@@ -267,34 +270,4 @@ st.markdown(f"""
 - Source: **{latest['source']}**
 """)
 
-st.divider()
-
-# =========================
-# GIS MAP
-# =========================
-
-st.subheader("🌍 Global GIS Map")
-
-fig = px.scatter_geo(
-    df,
-    lat="lat",
-    lon="lon",
-    color="risk",
-    size="cases",
-    hover_name="country"
-)
-
-st.plotly_chart(fig, use_container_width=True)
-
-# =========================
-# STREAM
-# =========================
-
-st.subheader("🔄 Live Stream")
-
-for _, r in df.iterrows():
-    st.write(
-        f"{r['country']} | {r['cases']} | {r['deaths']} | {r['risk']} | {r['forecast']} | {r['source']} | {r['time']}"
-    )
-
-st.success("🌍 System Running Stable")
+st
