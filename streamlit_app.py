@@ -17,9 +17,18 @@ st.set_page_config(
 )
 
 st.title("🌍 WHO AI Enterprise Intelligence Platform")
-st.caption("Real WHO + GDELT + Forecasting + GIS + Telegram Alerts")
+st.caption("WHO + GDELT + AI Forecasting + GIS + Telegram Alerts")
 
 st.divider()
+
+# =========================================
+# MODE SWITCH (IMPORTANT)
+# =========================================
+
+DATA_MODE = st.selectbox(
+    "Data Mode",
+    ["LIVE + SIMULATION", "SIMULATION ONLY"]
+)
 
 # =========================================
 # TELEGRAM SETUP
@@ -32,7 +41,7 @@ except:
     TELEGRAM_TOKEN = None
     CHAT_ID = None
 
-def send_telegram(message):
+def send_telegram(msg):
 
     if not TELEGRAM_TOKEN or not CHAT_ID:
         return
@@ -42,7 +51,7 @@ def send_telegram(message):
     try:
         requests.post(url, json={
             "chat_id": CHAT_ID,
-            "text": message
+            "text": msg
         }, timeout=5)
     except:
         pass
@@ -84,7 +93,7 @@ coords = {
 }
 
 # =========================================
-# WHO INGESTION
+# WHO INGESTION (SAFE)
 # =========================================
 
 @st.cache_data(ttl=300)
@@ -102,8 +111,8 @@ def get_who_data():
 
             data.append({
                 "country": detect_country(entry.title),
-                "cases": np.random.randint(2500, 9000),
-                "deaths": np.random.randint(50, 400),
+                "cases": 2000 + len(entry.title) * 15,
+                "deaths": 50 + len(entry.title) % 120,
                 "source": "WHO",
                 "event": entry.title
             })
@@ -114,7 +123,7 @@ def get_who_data():
     return data
 
 # =========================================
-# GDELT INGESTION
+# GDELT INGESTION (SAFE)
 # =========================================
 
 @st.cache_data(ttl=300)
@@ -126,7 +135,7 @@ def get_gdelt_data():
 
         url = (
             "https://api.gdeltproject.org/api/v2/doc/doc?"
-            "query=disease outbreak health epidemic&mode=ArtList&maxrecords=10&format=json"
+            "query=disease outbreak health epidemic&mode=ArtList&format=json"
         )
 
         r = requests.get(url, timeout=10)
@@ -135,17 +144,19 @@ def get_gdelt_data():
 
             articles = r.json().get("articles", [])
 
-            for article in articles:
+            for article in articles[:10]:
 
-                title = article.get("title", "health event")
+                title = article.get("title", "")
 
-                data.append({
-                    "country": detect_country(title),
-                    "cases": np.random.randint(3000, 12000),
-                    "deaths": np.random.randint(80, 500),
-                    "source": "GDELT",
-                    "event": title
-                })
+                if title:
+
+                    data.append({
+                        "country": detect_country(title),
+                        "cases": 3000 + len(title) * 10,
+                        "deaths": 80 + len(title) % 200,
+                        "source": "GDELT",
+                        "event": title
+                    })
 
     except:
         pass
@@ -158,30 +169,42 @@ def get_gdelt_data():
 
 def forecast(cases, deaths):
 
-    score = (cases * 0.6) + (deaths * 3.5)
+    score = (cases * 0.6) + (deaths * 3.2)
 
     if score > 9000:
-        return "HIGH", "EXPONENTIAL"
+        return "HIGH", "EXPONENTIAL SPREAD"
 
     elif score > 5000:
-        return "MODERATE", "SPREADING"
+        return "MODERATE", "RISING RISK"
 
     else:
         return "LOW", "CONTROLLED"
 
 # =========================================
-# LOAD DATA
+# DATA SOURCE ENGINE
 # =========================================
 
-raw = get_who_data() + get_gdelt_data()
-
-# SAFE FALLBACK
-if len(raw) == 0:
+if DATA_MODE == "SIMULATION ONLY":
 
     raw = [{
         "country": "Ethiopia",
         "cases": 2983,
         "deaths": 68,
+        "source": "SIMULATION",
+        "event": "Baseline simulation mode"
+    }]
+
+else:
+
+    raw = get_who_data() + get_gdelt_data()
+
+# fallback safety
+if len(raw) == 0:
+
+    raw = [{
+        "country": "Global",
+        "cases": 2500,
+        "deaths": 60,
         "source": "FALLBACK",
         "event": "No live data available"
     }]
@@ -210,7 +233,7 @@ for item in raw:
 df = pd.DataFrame(results)
 
 # =========================================
-# ADD GIS DATA
+# GIS MAP
 # =========================================
 
 df["lat"] = df["country"].apply(lambda x: coords.get(x, [0,0])[0])
@@ -224,8 +247,8 @@ col1, col2, col3, col4 = st.columns(4)
 
 col1.metric("Events", len(df))
 col2.metric("System", "ACTIVE")
-col3.metric("AI Engine", "READY")
-col4.metric("Mode", "STABLE")
+col3.metric("AI Engine", "ENTERPRISE")
+col4.metric("Mode", DATA_MODE)
 
 st.divider()
 
@@ -274,7 +297,7 @@ else:
 st.divider()
 
 # =========================================
-# AI ENGINE
+# AI ENGINE PANEL
 # =========================================
 
 st.subheader("🧠 AI Epidemiology Engine")
@@ -305,7 +328,7 @@ fig = px.scatter_geo(
     color="risk",
     size="cases",
     hover_name="country",
-    title="WHO AI Global Risk Map"
+    title="WHO AI Global Intelligence Map"
 )
 
 st.plotly_chart(fig, use_container_width=True)
@@ -320,7 +343,8 @@ st.subheader("🔄 Live Stream")
 
 for _, r in df.iterrows():
     st.write(
-        f"{r['country']} | {r['cases']} | {r['deaths']} | {r['risk']} | {r['prediction']} | {r['source']} | {r['time']}"
+        f"{r['country']} | {r['cases']} | {r['deaths']} | "
+        f"{r['risk']} | {r['prediction']} | {r['source']} | {r['time']}"
     )
 
 # =========================================
@@ -339,4 +363,4 @@ for _, r in df.iterrows():
             f"Risk: {r['risk']}"
         )
 
-st.success("System Running Successfully 🌍")
+st.success("🌍 WHO AI System Running Stable")
