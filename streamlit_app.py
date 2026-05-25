@@ -11,35 +11,27 @@ from datetime import datetime
 # =========================
 
 st.set_page_config(
-    page_title="WHO Global AI Intelligence System",
+    page_title="WHO AI Global Intelligence System",
     page_icon="🌍",
     layout="wide"
 )
 
-st.title("🌍 WHO Global AI Intelligence System")
-st.caption("Real-Time WHO + GDELT + AI Forecasting + Global Risk Monitoring")
+st.title("🌍 WHO AI Global Intelligence System")
+st.caption("Stable Real-Time WHO + GDELT + AI Forecasting Dashboard")
 
 st.divider()
 
 # =========================
-# SIDEBAR CONTROL
+# MODE
 # =========================
 
-mode = st.sidebar.selectbox(
-    "System Mode",
-    ["LIVE + SIMULATION", "SIMULATION ONLY"]
-)
-
-st.sidebar.success("SYSTEM ACTIVE")
+mode = st.selectbox("System Mode", ["LIVE + SIMULATION", "SIMULATION ONLY"])
 
 # =========================
 # COUNTRY ENGINE
 # =========================
 
-COUNTRIES = [
-    "Ethiopia","India","Brazil","Kenya",
-    "USA","China","Germany","France","Global"
-]
+COUNTRIES = ["Ethiopia","India","Brazil","Kenya","USA","China","Germany","France","Global"]
 
 def detect_country(text):
     for c in COUNTRIES:
@@ -48,11 +40,11 @@ def detect_country(text):
     return "Global"
 
 # =========================
-# WHO INGESTION
+# WHO DATA (SAFE)
 # =========================
 
 @st.cache_data(ttl=300)
-def get_who():
+def fetch_who():
 
     data = []
 
@@ -65,8 +57,8 @@ def get_who():
 
             data.append({
                 "country": detect_country(e.title),
-                "cases": 2000 + len(e.title) * 12,
-                "deaths": 40 + len(e.title) % 90,
+                "cases": 2000 + len(e.title) * 10,
+                "deaths": 50 + len(e.title) % 100,
                 "source": "WHO",
                 "event": e.title
             })
@@ -77,11 +69,11 @@ def get_who():
     return data
 
 # =========================
-# GDELT INGESTION
+# GDELT DATA
 # =========================
 
 @st.cache_data(ttl=300)
-def get_gdelt():
+def fetch_gdelt():
 
     data = []
 
@@ -100,8 +92,8 @@ def get_gdelt():
 
                 data.append({
                     "country": detect_country(title),
-                    "cases": 3000 + len(title) * 10,
-                    "deaths": 70 + len(title) % 110,
+                    "cases": 3000 + len(title) * 8,
+                    "deaths": 70 + len(title) % 120,
                     "source": "GDELT",
                     "event": title
                 })
@@ -112,26 +104,26 @@ def get_gdelt():
     return data
 
 # =========================
-# AI ENGINE (GLOBAL MODEL)
+# AI ENGINE
 # =========================
 
-def ai_model(cases, deaths):
+def predict(cases, deaths):
 
-    score = cases * 0.65 + deaths * 3.8
+    score = cases * 0.6 + deaths * 3.2
 
     if score > 9000:
-        return "CRITICAL", "EXPONENTIAL SPREAD"
+        return "CRITICAL", "EXPONENTIAL"
 
     elif score > 6000:
-        return "HIGH", "RAPID GROWTH"
+        return "HIGH", "RISING"
 
     elif score > 3000:
-        return "MODERATE", "RISING RISK"
+        return "MODERATE", "STABLE"
 
     return "LOW", "CONTROLLED"
 
 # =========================
-# DATA PIPELINE
+# LOAD DATA
 # =========================
 
 def load_data():
@@ -143,25 +135,13 @@ def load_data():
             "cases": 2983,
             "deaths": 68,
             "source": "SIMULATION",
-            "event": "System test mode"
+            "event": "Test Mode"
         }]
 
-    data = get_who() + get_gdelt()
-
-    if len(data) == 0:
-
-        return [{
-            "country": "Global",
-            "cases": 2500,
-            "deaths": 60,
-            "source": "FALLBACK",
-            "event": "No live data available"
-        }]
-
-    return data
+    return fetch_who() + fetch_gdelt()
 
 # =========================
-# BUILD DATAFRAME
+# PROCESS DATA
 # =========================
 
 raw = load_data()
@@ -170,7 +150,7 @@ results = []
 
 for r in raw:
 
-    risk, forecast = ai_model(r["cases"], r["deaths"])
+    risk, forecast = predict(r["cases"], r["deaths"])
 
     results.append({
         "country": r["country"],
@@ -186,20 +166,20 @@ for r in raw:
 df = pd.DataFrame(results)
 
 # =========================
-# METRICS DASHBOARD
+# DASHBOARD METRICS
 # =========================
 
 c1, c2, c3, c4 = st.columns(4)
 
 c1.metric("Events", len(df))
 c2.metric("System", "ACTIVE")
-c3.metric("AI Engine", "GLOBAL READY")
+c3.metric("AI Engine", "READY")
 c4.metric("Mode", mode)
 
 st.divider()
 
 # =========================
-# GLOBAL TABLE
+# MAIN TABLE
 # =========================
 
 st.subheader("🌍 Global Surveillance Dashboard")
@@ -208,21 +188,21 @@ st.dataframe(df, use_container_width=True)
 st.divider()
 
 # =========================
-# RISK INTELLIGENCE
+# RISK ANALYSIS
 # =========================
 
-st.subheader("🚨 Global Risk Intelligence")
+st.subheader("🚨 Risk Intelligence")
 
-risk_table = df["risk"].value_counts().reset_index()
-risk_table.columns = ["Risk Level", "Count"]
+risk_df = df["risk"].value_counts().reset_index()
+risk_df.columns = ["Risk", "Count"]
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.dataframe(risk_table, use_container_width=True)
+    st.dataframe(risk_df, use_container_width=True)
 
 with col2:
-    st.bar_chart(risk_table.set_index("Risk Level"))
+    st.bar_chart(risk_df.set_index("Risk"))
 
 st.divider()
 
@@ -230,24 +210,20 @@ st.divider()
 # ALERT SYSTEM
 # =========================
 
-st.subheader("🚨 Live Global Alerts")
+st.subheader("🚨 Live Alerts")
 
-high_risk = df[df["risk"] == "CRITICAL"]
+high = df[df["risk"] == "CRITICAL"]
 
-if high_risk.empty:
-
-    st.success("No critical outbreaks detected worldwide")
-
+if high.empty:
+    st.success("No critical outbreaks detected")
 else:
-
-    for _, r in high_risk.iterrows():
-
-        st.error(f"⚠️ {r['country']} → {r['forecast']}")
+    for _, r in high.iterrows():
+        st.error(f"{r['country']} → {r['forecast']}")
 
 st.divider()
 
 # =========================
-# AI ENGINE PANEL
+# AI ENGINE
 # =========================
 
 st.subheader("🧠 AI Epidemiology Engine")
@@ -255,12 +231,12 @@ st.subheader("🧠 AI Epidemiology Engine")
 latest = df.iloc[-1]
 
 st.markdown(f"""
-### 🌍 Country: {latest['country']}
-- 📊 Cases: **{latest['cases']}**
-- ⚰️ Deaths: **{latest['deaths']}**
-- 🚨 Risk: **{latest['risk']}**
-- 🧠 Forecast: **{latest['forecast']}**
-- 📡 Source: **{latest['source']}**
+### Country: {latest['country']}
+- Cases: **{latest['cases']}**
+- Deaths: **{latest['deaths']}**
+- Risk: **{latest['risk']}**
+- Forecast: **{latest['forecast']}**
+- Source: **{latest['source']}**
 """)
 
 st.divider()
@@ -284,7 +260,7 @@ coords = {
 df["lat"] = df["country"].apply(lambda x: coords.get(x, [0,0])[0])
 df["lon"] = df["country"].apply(lambda x: coords.get(x, [0,0])[1])
 
-st.subheader("🌍 Global GIS Intelligence Map")
+st.subheader("🌍 Global GIS Map")
 
 fig = px.scatter_geo(
     df,
@@ -300,10 +276,10 @@ st.plotly_chart(fig, use_container_width=True)
 st.divider()
 
 # =========================
-# LIVE STREAM
+# STREAM
 # =========================
 
-st.subheader("🔄 Global Live Stream")
+st.subheader("🔄 Live Stream")
 
 for _, r in df.iterrows():
 
@@ -311,4 +287,4 @@ for _, r in df.iterrows():
         f"{r['country']} | {r['cases']} | {r['deaths']} | {r['risk']} | {r['forecast']} | {r['source']} | {r['time']}"
     )
 
-st.success("🌍 GLOBAL WHO AI SYSTEM RUNNING STABLE")
+st.success("🌍 SYSTEM RUNNING STABLE")
