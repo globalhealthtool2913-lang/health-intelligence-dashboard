@@ -5,6 +5,7 @@ import requests
 import feedparser
 import plotly.express as px
 from datetime import datetime
+import time
 
 # =========================
 # CONFIG
@@ -17,9 +18,15 @@ st.set_page_config(
 )
 
 st.title("🌍 WHO AI Enterprise Intelligence Platform")
-st.caption("Stable WHO + GDELT + AI Forecasting System")
+st.caption("REAL-TIME WHO + GDELT + AI Forecasting System")
 
 st.divider()
+
+# =========================
+# AUTO REFRESH (REAL-TIME)
+# =========================
+
+REFRESH_SECONDS = 5
 
 # =========================
 # MODE
@@ -28,7 +35,7 @@ st.divider()
 mode = st.selectbox("Mode", ["LIVE + SIMULATION", "SIMULATION ONLY"])
 
 # =========================
-# COUNTRIES
+# COUNTRY DETECTION
 # =========================
 
 COUNTRIES = ["Ethiopia","India","Brazil","Kenya","USA","China","Germany","France"]
@@ -123,138 +130,129 @@ def predict(cases, deaths):
 # DATA PIPELINE
 # =========================
 
-if mode == "SIMULATION ONLY":
+def build_data():
 
-    raw = [{
-        "country": "Ethiopia",
-        "cases": 2983,
-        "deaths": 68,
-        "source": "SIMULATION",
-        "event": "Test simulation mode"
-    }]
+    if mode == "SIMULATION ONLY":
 
-else:
+        return [{
+            "country": "Ethiopia",
+            "cases": 2983,
+            "deaths": 68,
+            "source": "SIMULATION",
+            "event": "Test simulation"
+        }]
 
     raw = get_who() + get_gdelt()
 
-if len(raw) == 0:
+    if len(raw) == 0:
 
-    raw = [{
-        "country": "Global",
-        "cases": 2500,
-        "deaths": 60,
-        "source": "FALLBACK",
-        "event": "No data available"
-    }]
+        return [{
+            "country": "Global",
+            "cases": 2500,
+            "deaths": 60,
+            "source": "FALLBACK",
+            "event": "No live data"
+        }]
 
-# =========================
-# PROCESS DATA
-# =========================
-
-results = []
-
-for r in raw:
-
-    risk, forecast = predict(r["cases"], r["deaths"])
-
-    results.append({
-        "country": r["country"],
-        "cases": r["cases"],
-        "deaths": r["deaths"],
-        "risk": risk,
-        "forecast": forecast,
-        "source": r["source"],
-        "event": r["event"],
-        "time": datetime.now().strftime("%H:%M:%S")
-    })
-
-df = pd.DataFrame(results)
+    return raw
 
 # =========================
-# GIS MAP DATA
+# STREAMLIT AUTO REFRESH LOOP
 # =========================
 
-coords = {
-    "Ethiopia": [9.145, 40.4897],
-    "India": [20.5937, 78.9629],
-    "Brazil": [-14.2350, -51.9253],
-    "Kenya": [-0.0236, 37.9062],
-    "USA": [37.0902, -95.7129],
-    "China": [35.8617, 104.1954],
-    "Germany": [51.1657, 10.4515],
-    "France": [46.2276, 2.2137],
-    "Global": [0, 0]
-}
+placeholder = st.empty()
 
-df["lat"] = df["country"].apply(lambda x: coords.get(x, [0,0])[0])
-df["lon"] = df["country"].apply(lambda x: coords.get(x, [0,0])[1])
+while True:
 
-# =========================
-# METRICS
-# =========================
+    with placeholder.container():
 
-c1, c2, c3, c4 = st.columns(4)
+        raw = build_data()
 
-c1.metric("Events", len(df))
-c2.metric("System", "ACTIVE")
-c3.metric("AI Engine", "READY")
-c4.metric("Mode", mode)
+        results = []
 
-st.divider()
+        for r in raw:
 
-# =========================
-# DASHBOARD
-# =========================
+            risk, forecast = predict(r["cases"], r["deaths"])
 
-st.subheader("🌍 Global Dashboard")
-st.dataframe(df, use_container_width=True)
+            results.append({
+                "country": r["country"],
+                "cases": r["cases"],
+                "deaths": r["deaths"],
+                "risk": risk,
+                "forecast": forecast,
+                "source": r["source"],
+                "event": r["event"],
+                "time": datetime.now().strftime("%H:%M:%S")
+            })
 
-st.divider()
+        df = pd.DataFrame(results)
 
-# =========================
-# RISK TABLE
-# =========================
+        # =========================
+        # METRICS
+        # =========================
 
-st.subheader("🚨 Risk Intelligence")
+        c1, c2, c3, c4 = st.columns(4)
 
-risk = df["risk"].value_counts().reset_index()
-risk.columns = ["Risk", "Count"]
+        c1.metric("Events", len(df))
+        c2.metric("System", "ACTIVE")
+        c3.metric("AI Engine", "READY")
+        c4.metric("Mode", mode)
 
-col1, col2 = st.columns(2)
+        st.divider()
 
-with col1:
-    st.dataframe(risk, use_container_width=True)
+        # =========================
+        # TABLE
+        # =========================
 
-with col2:
-    st.bar_chart(risk.set_index("Risk"))
+        st.subheader("🌍 Global Dashboard")
+        st.dataframe(df, use_container_width=True)
 
-st.divider()
+        st.divider()
 
-# =========================
-# ALERTS
-# =========================
+        # =========================
+        # RISK
+        # =========================
 
-st.subheader("🚨 Live Alerts")
+        st.subheader("🚨 Risk Intelligence")
 
-high = df[df["risk"] == "HIGH"]
+        risk = df["risk"].value_counts().reset_index()
+        risk.columns = ["Risk", "Count"]
 
-if high.empty:
-    st.success("No critical outbreaks detected")
-else:
-    for _, r in high.iterrows():
-        st.error(f"{r['country']} → {r['forecast']}")
+        col1, col2 = st.columns(2)
 
-st.divider()
+        with col1:
+            st.dataframe(risk, use_container_width=True)
 
-# =========================
-# AI ENGINE
-# =========================
+        with col2:
+            st.bar_chart(risk.set_index("Risk"))
 
-st.subheader("🧠 AI Epidemiology Engine")
+        st.divider()
 
-latest = df.iloc[-1]
+        # =========================
+        # ALERTS
+        # =========================
 
-st.markdown(f"""
+        st.subheader("🚨 Live Alerts")
+
+        high = df[df["risk"] == "HIGH"]
+
+        if high.empty:
+            st.success("No critical outbreaks detected")
+        else:
+            for _, r in high.iterrows():
+                st.error(f"{r['country']} → {r['forecast']}")
+
+        st.divider()
+
+        # =========================
+        # AI ENGINE
+        # =========================
+
+        st.subheader("🧠 AI Epidemiology Engine")
+
+        latest = df.iloc[-1]
+
+        st.markdown(f"""
 ### Country: {latest['country']}
 - Cases: **{latest['cases']}**
 - Deaths: **{latest['deaths']}**
@@ -263,37 +261,54 @@ st.markdown(f"""
 - Source: **{latest['source']}**
 """)
 
-st.divider()
+        st.divider()
 
-# =========================
-# GIS MAP
-# =========================
+        # =========================
+        # GIS MAP
+        # =========================
 
-st.subheader("🌍 Global GIS Map")
+        coords = {
+            "Ethiopia": [9.145, 40.4897],
+            "India": [20.5937, 78.9629],
+            "Brazil": [-14.2350, -51.9253],
+            "Kenya": [-0.0236, 37.9062],
+            "USA": [37.0902, -95.7129],
+            "China": [35.8617, 104.1954],
+            "Germany": [51.1657, 10.4515],
+            "France": [46.2276, 2.2137],
+            "Global": [0, 0]
+        }
 
-fig = px.scatter_geo(
-    df,
-    lat="lat",
-    lon="lon",
-    color="risk",
-    size="cases",
-    hover_name="country"
-)
+        df["lat"] = df["country"].apply(lambda x: coords.get(x, [0,0])[0])
+        df["lon"] = df["country"].apply(lambda x: coords.get(x, [0,0])[1])
 
-st.plotly_chart(fig, use_container_width=True)
+        st.subheader("🌍 Global GIS Map")
 
-st.divider()
+        fig = px.scatter_geo(
+            df,
+            lat="lat",
+            lon="lon",
+            color="risk",
+            size="cases",
+            hover_name="country"
+        )
 
-# =========================
-# LIVE STREAM (FIXED CLEAN VERSION)
-# =========================
+        st.plotly_chart(fig, use_container_width=True)
 
-st.subheader("🔄 Live Stream")
+        st.divider()
 
-for _, r in df.iterrows():
+        # =========================
+        # STREAM
+        # =========================
 
-    st.write(
-        f"{r['country']} | {r['cases']} | {r['deaths']} | {r['risk']} | {r['forecast']} | {r['source']} | {r['time']}"
-    )
+        st.subheader("🔄 Live Stream")
 
-st.success("🌍 System Running Clean & Stable")
+        for _, r in df.iterrows():
+            st.write(
+                f"{r['country']} | {r['cases']} | {r['deaths']} | {r['risk']} | {r['forecast']} | {r['source']} | {r['time']}"
+            )
+
+        st.success("🌍 REAL-TIME SYSTEM RUNNING")
+
+    time.sleep(REFRESH_SECONDS)
+    st.rerun()
