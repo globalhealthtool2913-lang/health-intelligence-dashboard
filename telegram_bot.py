@@ -1,76 +1,108 @@
 import requests
 import time
 
-TOKEN = "YOUR_NEW_TOKEN"  # from BotFather
-URL = f"https://api.telegram.org/bot{TOKEN}"
+# =========================
+# CONFIG
+# =========================
 
-last_update_id = None
+TOKEN = 8888261436:AAGNdInjGTlryvUR67yu50ehzKhQyjyATp4
+BASE_URL = f"https://api.telegram.org/bot{TOKEN}"
+
+last_update_id = 0
 
 # =========================
-# SEND MESSAGE FUNCTION
+# SEND MESSAGE
 # =========================
 
 def send_message(chat_id, text):
 
-    try:
-        requests.post(URL + "/sendMessage", json={
-            "chat_id": chat_id,
-            "text": text
-        })
-    except:
-        pass
+    url = BASE_URL + "/sendMessage"
 
-# =========================
-# GET UPDATES (LISTENER)
-# =========================
-
-def get_updates():
-
-    global last_update_id
-
-    params = {"timeout": 10}
-
-    if last_update_id:
-        params["offset"] = last_update_id + 1
+    payload = {
+        "chat_id": chat_id,
+        "text": text
+    }
 
     try:
-        r = requests.get(URL + "/getUpdates", params=params)
+        requests.post(url, json=payload, timeout=10)
+    except Exception as e:
+        print("Send error:", e)
+
+# =========================
+# GET UPDATES
+# =========================
+
+def get_updates(offset):
+
+    url = BASE_URL + "/getUpdates"
+
+    params = {
+        "timeout": 10,
+        "offset": offset
+    }
+
+    try:
+        r = requests.get(url, params=params, timeout=15)
         return r.json()
-    except:
-        return {}
+    except Exception as e:
+        print("GetUpdates error:", e)
+        return {"ok": False, "result": []}
 
 # =========================
 # MAIN LOOP
 # =========================
 
-print("🤖 WHO AI Telegram Bot Started...")
+print("🤖 WHO AI Telegram Bot STARTED...")
 
 while True:
 
-    data = get_updates()
+    data = get_updates(last_update_id + 1)
 
-    for update in data.get("result", []):
+    if data.get("ok"):
 
-        last_update_id = update["update_id"]
+        for update in data.get("result", []):
 
-        message = update.get("message", {})
-        text = message.get("text", "")
-        chat_id = message.get("chat", {}).get("id")
+            last_update_id = update["update_id"]
 
-        # =========================
-        # COMMANDS
-        # =========================
+            message = update.get("message", {})
+            text = message.get("text", "")
+            chat_id = message.get("chat", {}).get("id")
 
-        if text == "/start":
-            send_message(chat_id, "🌍 WHO AI Bot is ACTIVE")
+            if not chat_id:
+                continue
 
-        elif text.lower() == "hello":
-            send_message(chat_id, "👋 Hello! WHO AI system is running.")
+            text_lower = text.lower()
 
-        elif text == "/status":
-            send_message(chat_id, "🧠 System: ACTIVE\n🌍 WHO AI Monitoring Online")
+            # =========================
+            # COMMANDS
+            # =========================
 
-        else:
-            send_message(chat_id, "🤖 Unknown command. Try /status or hello")
+            if text_lower == "/start":
+
+                send_message(chat_id,
+                    "🌍 WHO AI Bot is ACTIVE\n"
+                    "🧠 Monitoring System Online"
+                )
+
+            elif text_lower == "hello":
+
+                send_message(chat_id,
+                    "👋 Hello! WHO AI system is running."
+                )
+
+            elif text_lower == "/status":
+
+                send_message(chat_id,
+                    "🧠 System: ACTIVE\n🌍 WHO AI Monitoring Online"
+                )
+
+            else:
+
+                send_message(chat_id,
+                    "🤖 Unknown command.\nTry /status or hello"
+                )
+
+    else:
+        print("Waiting for connection...")
 
     time.sleep(2)
