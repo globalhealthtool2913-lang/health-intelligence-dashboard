@@ -1,79 +1,196 @@
 import streamlit as st
-import websocket
-import json
-import threading
-from collections import deque
+import pandas as pd
 
-# =========================
-# CONFIG
-# =========================
-
-st.set_page_config(
-    page_title="WHO AI Real-Time WebSocket System",
-    page_icon="🌍",
-    layout="wide"
+from data_sources import (
+    health_data_status,
+    get_who_health_data,
 )
 
-st.title("🌍 WHO AI Real-Time Intelligence System (WebSocket)")
+# ============================================================
+# PAGE CONFIG
+# ============================================================
 
-st.caption("Live global outbreak monitoring dashboard")
+st.set_page_config(
+    page_title="Nora Global Health Intelligence",
+    page_icon="🌍",
+    layout="wide",
+)
 
-# =========================
-# LIVE DATA STORAGE (SAFE BUFFER)
-# =========================
+# ============================================================
+# HEADER
+# ============================================================
 
-if "live_data" not in st.session_state:
-    st.session_state.live_data = deque(maxlen=15)
+st.title("🌍 Nora Global Health Intelligence")
+st.caption(
+    "Public-health intelligence dashboard powered by real WHO data"
+)
 
-container = st.empty()
+# ============================================================
+# SIDEBAR
+# ============================================================
 
-# =========================
-# WEBSOCKET CALLBACK
-# =========================
+st.sidebar.header("⚙️ Intelligence Controls")
 
-def on_message(ws, message):
+indicator = st.sidebar.text_input(
+    "WHO Indicator",
+    value="WHOSIS_000001",
+)
 
-    data = json.loads(message)
+records = st.sidebar.slider(
+    "Number of records",
+    min_value=5,
+    max_value=100,
+    value=20,
+)
 
-    st.session_state.live_data.appendleft(data)
+# ============================================================
+# WHO CONNECTION STATUS
+# ============================================================
 
-    with container.container():
+status = health_data_status()
 
-        st.subheader("🔄 LIVE GLOBAL STREAM")
+if status.get("status") == "online":
+    st.success("🟢 WHO data connection is online")
+else:
+    st.error("🔴 WHO data connection is unavailable")
 
-        for d in st.session_state.live_data:
+# ============================================================
+# LOAD WHO DATA
+# ============================================================
 
-            st.write(
-                f"{d.get('country')} | "
-                f"{d.get('cases')} | "
-                f"{d.get('deaths')} | "
-                f"{d.get('risk')} | "
-                f"{d.get('time')}"
+st.header("📊 WHO Health Intelligence")
+
+if st.button("🔄 Fetch Latest WHO Data", type="primary"):
+
+    with st.spinner("Connecting to WHO and retrieving data..."):
+
+        data = get_who_health_data(
+            indicator=indicator,
+            top=records,
+        )
+
+    if data:
+
+        st.session_state["who_data"] = data
+
+        st.success(
+            f"✅ Retrieved {len(data)} WHO records"
+        )
+
+    else:
+
+        st.warning(
+            "No WHO records were returned. "
+            "Check the indicator or WHO connection."
+        )
+
+# ============================================================
+# DISPLAY DATA
+# ============================================================
+
+if "who_data" in st.session_state:
+
+    data = st.session_state["who_data"]
+
+    df = pd.DataFrame(data)
+
+    st.subheader("🌍 WHO Data")
+
+    display_columns = [
+        column
+        for column in [
+            "country_code",
+            "time",
+            "value",
+            "value_type",
+            "indicator",
+        ]
+        if column in df.columns
+    ]
+
+    if display_columns:
+
+        st.dataframe(
+            df[display_columns],
+            use_container_width=True,
+        )
+
+    else:
+
+        st.dataframe(
+            df,
+            use_container_width=True,
+        )
+
+    # ========================================================
+    # SUMMARY
+    # ========================================================
+
+    st.subheader("📈 Intelligence Summary")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "WHO Records",
+            len(df),
+        )
+
+    with col2:
+
+        if "country_code" in df.columns:
+            countries = df["country_code"].nunique()
+        else:
+            countries = 0
+
+        st.metric(
+            "Countries",
+            countries,
+        )
+
+    with col3:
+
+        if "value" in df.columns:
+
+            numeric_values = pd.to_numeric(
+                df["value"],
+                errors="coerce",
             )
 
-# =========================
-# WEBSOCKET RUNNER
-# =========================
+            valid_values = numeric_values.dropna()
 
-def run_ws():
+            if len(valid_values) > 0:
+                average = valid_values.mean()
+                st.metric(
+                    "Average Value",
+                    f"{average:,.2f}",
+                )
+            else:
+                st.metric(
+                    "Average Value",
+                    "N/A",
+                )
 
-    ws = websocket.WebSocketApp(
-        "ws://localhost:8000/ws/live",
-        on_message=on_message
+        else:
+
+            st.metric(
+                "Average Value",
+                "N/A",
+            )
+
+else:
+
+    st.info(
+        "👆 Click **Fetch Latest WHO Data** to load real WHO records."
     )
 
-    ws.run_forever()
+# ============================================================
+# FOOTER
+# ============================================================
 
-# =========================
-# START BACKGROUND THREAD
-# =========================
+st.divider()
 
-threading.Thread(target=run_ws, daemon=True).start()
-
-# =========================
-# STATUS PANEL
-# =========================
-
-st.success("🌍 WebSocket Connection Active")
-
-st.info("Waiting for real-time WHO + GDELT outbreak stream...")
+st.caption(
+    "Nora Global Health Intelligence • "
+    "Public-health data intelligence platform"
+)
