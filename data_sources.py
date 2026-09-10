@@ -1,9 +1,10 @@
+```python
 """
 Nora Global Health Intelligence
 Real public-health data ingestion layer.
 
-This module provides a consistent structure for health events so the
-risk engine, database, API, and dashboard can use the same data format.
+WHO GHO OData API
+https://ghoapi.azureedge.net/api
 """
 
 from __future__ import annotations
@@ -14,13 +15,27 @@ from typing import Any
 import requests
 
 
+# ============================================================
+# CONFIGURATION
+# ============================================================
+
 WHO_GHO_API = "https://ghoapi.azureedge.net/api"
 
+DEFAULT_TIMEOUT = 30
+
+
+# ============================================================
+# TIME
+# ============================================================
 
 def utc_now() -> str:
     """Return the current UTC time in ISO-8601 format."""
     return datetime.now(timezone.utc).isoformat()
 
+
+# ============================================================
+# EVENT NORMALIZATION
+# ============================================================
 
 def normalize_event(
     *,
@@ -38,7 +53,8 @@ def normalize_event(
     published_at: str | None = None,
 ) -> dict[str, Any]:
     """
-    Convert information from different sources into one standard event format.
+    Convert information from different public-health sources
+    into one standard Nora event format.
     """
 
     return {
@@ -58,10 +74,14 @@ def normalize_event(
     }
 
 
+# ============================================================
+# WHO GHO API
+# ============================================================
+
 def fetch_who_indicator(
     indicator: str,
     top: int = 100,
-    timeout: int = 30,
+    timeout: int = DEFAULT_TIMEOUT,
 ) -> list[dict[str, Any]]:
     """
     Fetch indicator data from the WHO GHO OData API.
@@ -77,6 +97,10 @@ def fetch_who_indicator(
             url,
             params={"$top": top},
             timeout=timeout,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "Nora-Global-Health-Intelligence/1.0",
+            },
         )
 
         response.raise_for_status()
@@ -94,17 +118,24 @@ def fetch_who_indicator(
         return []
 
 
+# ============================================================
+# WHO HEALTH DATA
+# ============================================================
+
 def get_who_health_data(
     indicator: str,
     top: int = 100,
 ) -> list[dict[str, Any]]:
     """
-    Retrieve WHO data and attach ingestion metadata.
+    Retrieve WHO indicator data and attach Nora metadata.
     """
 
-    rows = fetch_who_indicator(indicator, top=top)
+    rows = fetch_who_indicator(
+        indicator,
+        top=top,
+    )
 
-    results = []
+    results: list[dict[str, Any]] = []
 
     for row in rows:
         results.append(
@@ -123,15 +154,104 @@ def get_who_health_data(
     return results
 
 
-def health_data_status() -> dict[str, Any]:
+# ============================================================
+# WHO INDICATOR LIST
+# ============================================================
+
+def get_who_indicators(
+    top: int = 100,
+    timeout: int = DEFAULT_TIMEOUT,
+) -> list[dict[str, Any]]:
     """
-    Check whether the WHO data service is reachable.
+    Retrieve available indicators from the WHO GHO API.
     """
+
+    url = f"{WHO_GHO_API}/Indicator"
 
     try:
         response = requests.get(
-            WHO_GHO_API,
+            url,
+            params={"$top": top},
+            timeout=timeout,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "Nora-Global-Health-Intelligence/1.0",
+            },
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        return data.get("value", [])
+
+    except requests.RequestException as exc:
+        print(f"WHO indicator request failed: {exc}")
+        return []
+
+    except ValueError as exc:
+        print(f"WHO indicator API returned invalid JSON: {exc}")
+        return []
+
+
+# ============================================================
+# WHO COUNTRY LIST
+# ============================================================
+
+def get_who_countries(
+    timeout: int = DEFAULT_TIMEOUT,
+) -> list[dict[str, Any]]:
+    """
+    Retrieve country dimension values from WHO.
+    """
+
+    url = f"{WHO_GHO_API}/DIMENSION/COUNTRY/DimensionValues"
+
+    try:
+        response = requests.get(
+            url,
+            timeout=timeout,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "Nora-Global-Health-Intelligence/1.0",
+            },
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        return data.get("value", [])
+
+    except requests.RequestException as exc:
+        print(f"WHO country request failed: {exc}")
+        return []
+
+    except ValueError as exc:
+        print(f"WHO country API returned invalid JSON: {exc}")
+        return []
+
+
+# ============================================================
+# SERVICE STATUS
+# ============================================================
+
+def health_data_status() -> dict[str, Any]:
+    """
+    Check whether the WHO GHO API is reachable.
+    """
+
+    url = f"{WHO_GHO_API}/Indicator"
+
+    try:
+        response = requests.get(
+            url,
+            params={"$top": 1},
             timeout=10,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "Nora-Global-Health-Intelligence/1.0",
+            },
         )
 
         return {
@@ -150,10 +270,32 @@ def health_data_status() -> dict[str, Any]:
         }
 
 
+# ============================================================
+# SIMPLE TEST
+# ============================================================
+
 if __name__ == "__main__":
     print("🌍 Nora Global Health Intelligence")
-    print("🔎 Checking WHO data service...")
+    print("🔎 Checking WHO GHO API...")
 
     status = health_data_status()
 
+    print("\nWHO STATUS:")
     print(status)
+
+    if status["status"] == "online":
+        print("\n✅ WHO API is reachable.")
+        print("📊 Loading a sample indicator...")
+
+        sample = get_who_health_data(
+            "WHOSIS_000001",
+            top=5,
+        )
+
+        print(f"Received {len(sample)} records.")
+
+        for record in sample:
+            print(record)
+    else:
+        print("\n❌ WHO API could not be reached.")
+```
